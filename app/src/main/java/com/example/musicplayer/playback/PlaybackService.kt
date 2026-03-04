@@ -34,6 +34,7 @@ class PlaybackService : MediaSessionService() {
             session.release()
         }
         mediaSession = null
+        PlayerFactory.releaseCache()
         super.onDestroy()
     }
 

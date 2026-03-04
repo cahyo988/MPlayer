@@ -8,6 +8,7 @@ data class Track(
     val durationMs: Long,
     val uri: String,
     val source: TrackSource,
+    val artworkUri: String? = null,
     val driveFileId: String? = null,
     val mimeType: String? = null
 )

@@ -3,24 +3,28 @@ package com.example.musicplayer.ui
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.musicplayer.R
 import com.example.musicplayer.di.AppContainer
 import com.example.musicplayer.features.drive.DriveBrowserScreen
 import com.example.musicplayer.features.drive.DriveViewModel
@@ -34,7 +38,9 @@ import com.example.musicplayer.ui.AppTab.LOCAL
 import com.example.musicplayer.ui.AppTab.NOW_PLAYING
 import com.example.musicplayer.ui.AppTab.PLAYLISTS
 import com.example.musicplayer.ui.nowplaying.NowPlayingScreen
+import com.example.musicplayer.ui.theme.MusicPlayerTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App(
     playbackController: PlaybackController,
@@ -45,18 +51,44 @@ fun App(
     var selectedTab by remember { mutableStateOf(LOCAL) }
 
     val localLibraryViewModel: LocalLibraryViewModel = viewModel(
-        factory = LocalLibraryViewModel.factory(appContainer.localMusicRepository)
+        factory = LocalLibraryViewModel.factory(
+            appContainer.localMusicRepository,
+            appContainer.playlistRepository
+        )
     )
     val playlistsViewModel: PlaylistsViewModel = viewModel(
         factory = PlaylistsViewModel.factory(appContainer.playlistRepository)
     )
+    val playlistsState by playlistsViewModel.uiState.collectAsStateWithLifecycle()
+    val activePlaylistName = playlistsState.selectedPlaylist?.name
+        ?: playlistsState.playlists.firstOrNull { it.id == playlistsState.selectedPlaylistId }?.name
+        ?: stringResource(R.string.playlist_default_name)
     val driveViewModel: DriveViewModel = viewModel(
-        factory = DriveViewModel.factory(appContainer.driveRepository)
+        factory = DriveViewModel.factory(
+            appContainer.driveRepository,
+            appContainer.driveSourceRepository,
+            appContainer.offlineStatusRepository,
+            appContainer.offlineDownloadManager
+        )
     )
 
-    MaterialTheme {
+    MusicPlayerTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                when (selectedTab) {
+                                    LOCAL -> stringResource(R.string.screen_local_title)
+                                    DRIVE -> stringResource(R.string.screen_drive_title)
+                                    PLAYLISTS -> stringResource(R.string.screen_playlists_title)
+                                    NOW_PLAYING -> stringResource(R.string.screen_now_playing_title)
+                                }
+                            )
+                        }
+                    )
+                },
                 bottomBar = {
                     NavigationBar {
                         AppTab.entries.forEach { tab ->
@@ -66,10 +98,10 @@ fun App(
                                 icon = {
                                     Icon(
                                         imageVector = tab.icon,
-                                        contentDescription = tab.label
+                                        contentDescription = stringResource(tab.labelRes)
                                     )
                                 },
-                                label = { Text(tab.label) }
+                                label = { Text(stringResource(tab.labelRes)) }
                             )
                         }
                     }
@@ -82,9 +114,12 @@ fun App(
                         playbackController = playbackController,
                         hasAudioPermission = hasAudioPermission,
                         onRequestPermission = onRequestAudioPermission,
+                        activePlaylistName = activePlaylistName,
+                        onChangePlaylist = { selectedTab = PLAYLISTS },
                         onAddToPlaylist = { track ->
                             playlistsViewModel.addTrackToSelectedPlaylist(track)
-                        }
+                        },
+                        onOpenNowPlaying = { selectedTab = NOW_PLAYING }
                     )
 
                     DRIVE -> DriveBrowserScreen(
@@ -93,13 +128,19 @@ fun App(
                         onPlayTracks = { tracks, index ->
                             playbackController.setQueue(tracks, index, playWhenReady = true)
                             selectedTab = NOW_PLAYING
+                        },
+                        activePlaylistName = activePlaylistName,
+                        onChangePlaylist = { selectedTab = PLAYLISTS },
+                        onAddToPlaylist = { track ->
+                            playlistsViewModel.addTrackToSelectedPlaylist(track)
                         }
                     )
 
                     PLAYLISTS -> PlaylistsScreen(
                         modifier = Modifier.padding(innerPadding),
                         viewModel = playlistsViewModel,
-                        playbackController = playbackController
+                        playbackController = playbackController,
+                        onOpenNowPlaying = { selectedTab = NOW_PLAYING }
                     )
 
                     NOW_PLAYING -> NowPlayingScreen(
@@ -112,9 +153,12 @@ fun App(
     }
 }
 
-enum class AppTab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    LOCAL("Local", Icons.Filled.LibraryMusic),
-    DRIVE("Drive", Icons.Filled.Storage),
-    PLAYLISTS("Playlists", Icons.Filled.List),
-    NOW_PLAYING("Now Playing", Icons.Filled.PlayArrow)
+enum class AppTab(
+    val labelRes: Int,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    LOCAL(R.string.tab_local, Icons.Filled.LibraryMusic),
+    DRIVE(R.string.tab_drive, Icons.Filled.Storage),
+    PLAYLISTS(R.string.tab_playlists, Icons.AutoMirrored.Filled.List),
+    NOW_PLAYING(R.string.tab_now_playing, Icons.Filled.PlayArrow)
 }

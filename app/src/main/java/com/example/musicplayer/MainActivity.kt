@@ -35,7 +35,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         appContainer = AppContainer(applicationContext)
-        playbackController = PlaybackController(applicationContext)
+        playbackController = PlaybackController(
+            context = applicationContext,
+            playbackUriResolver = appContainer.offlinePlaybackResolver
+        )
         hasAudioPermission = isAudioPermissionGranted()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

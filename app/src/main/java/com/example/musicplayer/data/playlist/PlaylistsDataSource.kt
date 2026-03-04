@@ -10,4 +10,6 @@ interface PlaylistsDataSource {
     suspend fun deletePlaylist(playlistId: Long)
     suspend fun addTrack(playlistId: Long, track: Track)
     suspend fun removeTrack(playlistId: Long, trackId: String)
+    suspend fun ensureDefaultLocalPlaylist(): Long
+    suspend fun syncDefaultLocalPlaylist(localTracks: List<Track>)
 }

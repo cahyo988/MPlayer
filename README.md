@@ -18,8 +18,8 @@ Dokumen ini merangkum rencana produk, arsitektur, requirement, dan roadmap imple
 - Background playback + notifikasi media (MediaSession)
 - Playlist sederhana (manual)
 - Integrasi Google Drive:
-  - Login Google
-  - Browse folder/file
+  - Input URL folder public
+  - Browse file audio dari folder public
   - Stream audio dari Drive (tanpa download penuh)
   - Cache opsional (hemat kuota & loading lebih cepat)
 
@@ -45,14 +45,14 @@ Stack yang paling praktis:
 - **Media3 / ExoPlayer** (playback, streaming, caching, MediaSession)
 - **Room** (metadata, playlist, history)
 - **WorkManager** (scan library & background sync)
-- **Google Sign-In + Google Drive API** (file listing + streaming)
+- **Public Google Drive folder URL + parser** (file listing + streaming)
 
 ### Struktur modul (rapi & scalable)
 
 - `app` (UI, navigation)
 - `player` (service playback, MediaSession)
 - `data-local` (scan file, Room, repository)
-- `data-drive` (Drive API client, repository)
+- `data-drive` (public Drive URL parser + repository)
 - `core` (utils, models, common)
 
 ---
@@ -76,11 +76,11 @@ Pendekatan:
 
 Flow umum:
 
-1. OAuth login → dapat token
-2. List file audio di folder Drive
+1. User input URL folder public Drive
+2. Parse daftar file audio dari folder public
 3. Playback:
-   - Ambil endpoint stream/download Drive dengan auth header
-   - Feed ke ExoPlayer via custom DataSource (mis. OkHttp + auth)
+   - Gunakan endpoint stream/download publik
+   - Feed ke ExoPlayer via DataSource
 4. Tambahkan cache (`CacheDataSource` di Media3)
 
 ### C) Support “mpc”
@@ -109,14 +109,14 @@ Opsi:
 - Background playback + lockscreen controls
 - Playlist create/edit/delete
 - Google Drive:
-  - Login Google
-  - Browse folder
+  - Input URL folder public
+  - Browse file audio dari folder public
   - Play file dari Drive
-  - Cache & recently played
+  - Cache opsional & recently played
 - Error handling:
   - File hilang
   - Permission ditolak
-  - Token expired
+  - URL folder invalid/private
   - Jaringan putus
 
 ### Non-functional requirements
@@ -125,7 +125,7 @@ Opsi:
 - Offline resilience via cache
 - Battery-friendly (hindari scanning berulang)
 - Privacy: tidak upload data library user tanpa izin
-- Compliance policy Google (auth, permission, data usage disclosure)
+- Compliance policy Google (permission, data usage disclosure)
 
 ---
 
@@ -168,9 +168,9 @@ Opsi:
 
 ### Milestone 2 — Google Drive Integration MVP
 
-- Google Sign-In + Drive API
-- Browse folder + list file audio
-- Stream playback + handle token refresh
+- Input URL folder public + list file audio
+- Browse file audio dari folder public
+- Stream playback + handle network error
 - Stream cache
 
 ### Milestone 3 — Polish & Release Readiness
@@ -200,9 +200,9 @@ Opsi:
 ### Library/SDK
 
 - `androidx.media3` (ExoPlayer/MediaSession)
-- Google Identity Services / Google Sign-In
-- Google Drive API client + OAuth scope minimal
-- OkHttp + auth interceptor
+- Parser folder public Drive (tanpa login)
+- Parser folder public (HTML)
+- (Opsional) OkHttp untuk networking lanjutan
 - Room, WorkManager
 - (Opsional) Coil untuk artwork loading
 
@@ -220,9 +220,9 @@ Opsi:
 - Jelaskan di Privacy Policy:
   - Akses media lokal hanya untuk playback/library
   - Akses Drive hanya untuk browse/stream sesuai fitur
-- Gunakan OAuth scope Drive paling sempit yang memungkinkan
+- Jangan minta akses akun Google jika fitur memakai folder public URL
 - Jangan minta permission yang tidak perlu
-- Sediakan **sign out**, **revoke token**, dan alur **delete account** (jika ada akun internal)
+- Untuk mode public URL, tidak perlu alur **sign out/revoke token**
 
 ---
 

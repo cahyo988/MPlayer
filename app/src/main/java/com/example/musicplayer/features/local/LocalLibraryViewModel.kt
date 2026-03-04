@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.musicplayer.core.model.Track
 import com.example.musicplayer.data.local.LocalMusicRepository
+import com.example.musicplayer.data.playlist.PlaylistsDataSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,13 +19,17 @@ data class LocalLibraryUiState(
 )
 
 class LocalLibraryViewModel(
-    private val repository: LocalMusicRepository
+    private val repository: LocalMusicRepository,
+    private val playlistsRepository: PlaylistsDataSource
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LocalLibraryUiState(isLoading = true))
     val uiState: StateFlow<LocalLibraryUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            runCatching { playlistsRepository.ensureDefaultLocalPlaylist() }
+        }
         viewModelScope.launch {
             repository.tracks().collect { tracks ->
                 _uiState.update { it.copy(tracks = tracks, isLoading = false, error = null) }
@@ -37,6 +42,7 @@ class LocalLibraryViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             runCatching {
                 repository.refresh()
+                playlistsRepository.syncDefaultLocalPlaylist(repository.tracks().value)
             }.onFailure { throwable ->
                 _uiState.update {
                     it.copy(
@@ -49,11 +55,14 @@ class LocalLibraryViewModel(
     }
 
     companion object {
-        fun factory(repository: LocalMusicRepository): ViewModelProvider.Factory =
+        fun factory(
+            repository: LocalMusicRepository,
+            playlistsRepository: PlaylistsDataSource
+        ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return LocalLibraryViewModel(repository) as T
+                    return LocalLibraryViewModel(repository, playlistsRepository) as T
                 }
             }
     }

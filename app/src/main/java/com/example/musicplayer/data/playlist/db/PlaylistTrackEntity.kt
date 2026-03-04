@@ -26,6 +26,7 @@ data class PlaylistTrackEntity(
     val durationMs: Long,
     val uri: String,
     val source: String,
+    val artworkUri: String? = null,
     val driveFileId: String? = null,
     val mimeType: String? = null,
     val position: Int

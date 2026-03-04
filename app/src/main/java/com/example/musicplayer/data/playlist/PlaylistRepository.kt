@@ -27,6 +27,28 @@ class PlaylistRepository(
 ) : PlaylistsDataSource {
     private val playlistLocks = ConcurrentHashMap<Long, Mutex>()
 
+    override suspend fun ensureDefaultLocalPlaylist(): Long {
+        val existing = dao.getSystemDefaultPlaylist()
+        if (existing != null) return existing.id
+        return dao.insertPlaylist(
+            PlaylistEntity(
+                name = DEFAULT_LOCAL_PLAYLIST_NAME,
+                isSystemDefault = true
+            )
+        )
+    }
+
+    override suspend fun syncDefaultLocalPlaylist(localTracks: List<Track>) {
+        val playlistId = ensureDefaultLocalPlaylist()
+        val lock = playlistLocks.getOrPut(playlistId) { Mutex() }
+        lock.withLock {
+            dao.deleteTracksBySource(playlistId, TrackSource.LOCAL.name)
+            if (localTracks.isEmpty()) return
+            val deduped = mapLocalTracksForDefaultPlaylist(playlistId, localTracks)
+            dao.upsertPlaylistTracks(deduped)
+        }
+    }
+
     override fun observePlaylists(): Flow<List<PlaylistSummary>> =
         dao.observePlaylists().map { entities ->
             entities.map { PlaylistSummary(id = it.id, name = it.name) }
@@ -49,6 +71,7 @@ class PlaylistRepository(
                             durationMs = row.durationMs,
                             uri = row.uri,
                             source = source,
+                            artworkUri = row.artworkUri,
                             driveFileId = row.driveFileId,
                             mimeType = row.mimeType
                         )
@@ -62,6 +85,8 @@ class PlaylistRepository(
     }
 
     override suspend fun deletePlaylist(playlistId: Long) {
+        val playlist = dao.getPlaylistById(playlistId) ?: return
+        if (playlist.isSystemDefault) return
         dao.deletePlaylist(playlistId)
     }
 
@@ -78,6 +103,7 @@ class PlaylistRepository(
                     durationMs = track.durationMs,
                     uri = track.uri,
                     source = track.source.name,
+                    artworkUri = track.artworkUri,
                     driveFileId = track.driveFileId,
                     mimeType = track.mimeType,
                     position = 0
@@ -88,5 +114,9 @@ class PlaylistRepository(
 
     override suspend fun removeTrack(playlistId: Long, trackId: String) {
         dao.deleteTrack(playlistId, trackId)
+    }
+
+    companion object {
+        const val DEFAULT_LOCAL_PLAYLIST_NAME = "All Local Songs"
     }
 }

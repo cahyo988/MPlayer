@@ -106,4 +106,14 @@ private class FakePlaylistsDataSource : PlaylistsDataSource {
     override suspend fun removeTrack(playlistId: Long, trackId: String) {
         tracksByPlaylist[playlistId]?.removeAll { it.id == trackId }
     }
+
+    override suspend fun ensureDefaultLocalPlaylist(): Long {
+        return playlists.value.firstOrNull { it.name == "All Local Songs" }?.id
+            ?: createPlaylist("All Local Songs")
+    }
+
+    override suspend fun syncDefaultLocalPlaylist(localTracks: List<Track>) {
+        val id = ensureDefaultLocalPlaylist()
+        tracksByPlaylist[id] = localTracks.distinctBy { it.id }.toMutableList()
+    }
 }

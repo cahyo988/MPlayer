@@ -1,3 +1,85 @@
 <resources>
     <string name="app_name">MusicPlayer</string>
+    <string name="tab_local">Local</string>
+    <string name="tab_drive">Drive</string>
+    <string name="tab_playlists">Playlists</string>
+    <string name="tab_now_playing">Now Playing</string>
+
+    <string name="screen_local_title">Local Library</string>
+    <string name="screen_drive_title">Drive Library</string>
+    <string name="screen_playlists_title">Playlists</string>
+    <string name="screen_now_playing_title">Now Playing</string>
+
+    <string name="label_active_playlist">Active playlist</string>
+    <string name="playlist_default_name">My Playlist</string>
+    <string name="action_change">Change</string>
+
+    <string name="permission_audio_required">Audio permission is required to scan local music.</string>
+    <string name="action_grant_permission">Grant permission</string>
+    <string name="loading_scanning_local_library">Scanning local library…</string>
+    <string name="error_prefix">Error: %1$s</string>
+    <string name="action_retry">Retry</string>
+    <string name="empty_local_library">No local music found.</string>
+    <string name="action_rescan">Rescan</string>
+    <string name="action_add_to_playlist">Add to playlist</string>
+    <string name="action_track_actions_for">Track actions for %1$s</string>
+
+    <string name="drive_mode_load">Load Drive</string>
+    <string name="drive_mode_saved">Saved Library</string>
+    <string name="drive_public_url_title">Public Drive URL</string>
+    <string name="drive_source_title_label">Source title</string>
+    <string name="drive_source_title_placeholder">My public folder</string>
+    <string name="drive_url_label">Public Drive URL</string>
+    <string name="drive_url_placeholder">https://drive.google.com/drive/folders/yourFolderId</string>
+    <string name="drive_url_supporting">Folder must be public and contain audio files.</string>
+    <string name="drive_save_source">Save source</string>
+    <string name="drive_saved_sources">Saved Sources</string>
+    <string name="drive_no_saved_sources">No saved sources yet. Add one in Load Drive.</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_load_tracks">Load tracks</string>
+    <string name="action_download">Download</string>
+    <string name="action_loading">Loading…</string>
+    <string name="drive_no_playable_audio">No playable audio found in this folder.</string>
+    <string name="drive_select_source_prompt">Select a source and tap Load Tracks.</string>
+    <string name="drive_remove_source_confirm">Remove this saved source?</string>
+    <string name="drive_status_completed">Completed</string>
+    <string name="drive_status_queued">Queued</string>
+    <string name="drive_status_downloading">Downloading</string>
+    <string name="drive_status_failed">Failed</string>
+    <string name="drive_status_partial">Partial</string>
+    <string name="drive_status_none">Not downloaded</string>
+    <string name="download_error_generic">Download failed</string>
+    <string name="download_error_network">Network issue while downloading</string>
+    <string name="download_error_invalid_url">Invalid download URL</string>
+
+    <string name="offline_status_downloaded">Downloaded ✓</string>
+    <string name="offline_status_downloading">Downloading…</string>
+    <string name="offline_status_queued">Queued</string>
+    <string name="offline_status_failed">Download failed</string>
+    <string name="offline_status_remote">Remote</string>
+    <string name="offline_summary_format">%1$s • %2$d/%3$d (%4$d%%)</string>
+
+    <string name="playlist_new">New playlist</string>
+    <string name="playlist_delete">Delete</string>
+    <string name="playlist_select_prompt">Select a playlist to view tracks</string>
+    <string name="playlist_empty">No tracks in this playlist yet.</string>
+    <string name="playlist_remove_track">Remove track</string>
+    <string name="playlist_delete_confirm">Delete selected playlist?</string>
+    <string name="playlist_remove_track_confirm">Remove this track from playlist?</string>
+
+    <string name="now_playing_no_track">No track selected</string>
+    <string name="now_playing_search_label">Search queue</string>
+    <string name="now_playing_search_placeholder">Title, artist, album</string>
+    <string name="now_playing_no_results">No matching tracks</string>
+    <string name="control_previous">Prev</string>
+    <string name="control_play">Play</string>
+    <string name="control_pause">Pause</string>
+    <string name="control_next">Next</string>
+    <string name="control_repeat_off">Repeat: Off</string>
+    <string name="control_repeat_all">Repeat: All</string>
+    <string name="control_repeat_one">Repeat: One</string>
+    <string name="control_shuffle_on">Shuffle: On</string>
+    <string name="control_shuffle_off">Shuffle: Off</string>
+    <string name="playback_time_format">%1$s / %2$s</string>
 </resources>

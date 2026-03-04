@@ -61,11 +61,15 @@ dependencies {
 
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
+    implementation(libs.media3.datasource)
+    implementation(libs.media3.database)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.work.runtime.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.jsoup)
+    implementation(libs.coil.compose)
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -19,6 +19,7 @@ class MediaStoreScanner(private val context: Context) {
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.MIME_TYPE,
+            MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.IS_MUSIC
         )
 
@@ -33,10 +34,17 @@ class MediaStoreScanner(private val context: Context) {
             val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val mimeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+            val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
                 val contentUri = ContentUris.withAppendedId(collection, id)
+                val albumId = cursor.getLong(albumIdColumn)
+                val artworkUri = if (albumId > 0) {
+                    ContentUris.withAppendedId(MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI, albumId).toString()
+                } else {
+                    null
+                }
                 tracks += Track(
                     id = "local:$id",
                     title = cursor.getString(titleColumn) ?: "Unknown title",
@@ -45,6 +53,7 @@ class MediaStoreScanner(private val context: Context) {
                     durationMs = cursor.getLong(durationColumn),
                     uri = contentUri.toString(),
                     source = TrackSource.LOCAL,
+                    artworkUri = artworkUri,
                     mimeType = cursor.getString(mimeColumn)
                 )
             }

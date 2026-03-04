@@ -19,11 +19,20 @@ interface PlaylistDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlaylist(playlist: PlaylistEntity): Long
 
+    @Query("SELECT * FROM playlists WHERE isSystemDefault = 1 LIMIT 1")
+    suspend fun getSystemDefaultPlaylist(): PlaylistEntity?
+
+    @Query("SELECT * FROM playlists WHERE id = :playlistId LIMIT 1")
+    suspend fun getPlaylistById(playlistId: Long): PlaylistEntity?
+
     @Query("DELETE FROM playlists WHERE id = :playlistId")
     suspend fun deletePlaylist(playlistId: Long)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertPlaylistTrack(track: PlaylistTrackEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPlaylistTracks(tracks: List<PlaylistTrackEntity>)
 
     @Transaction
     suspend fun addTrackAtEnd(track: PlaylistTrackEntity) {
@@ -33,6 +42,15 @@ interface PlaylistDao {
 
     @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId AND trackId = :trackId")
     suspend fun deleteTrack(playlistId: Long, trackId: String)
+
+    @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId")
+    suspend fun deleteAllTracks(playlistId: Long)
+
+    @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId AND source = :source")
+    suspend fun deleteTracksBySource(playlistId: Long, source: String)
+
+    @Query("SELECT trackId FROM playlist_tracks WHERE playlistId = :playlistId")
+    suspend fun getTrackIds(playlistId: Long): List<String>
 
     @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun nextPosition(playlistId: Long): Int
