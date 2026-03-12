@@ -43,7 +43,7 @@ fun LocalLibraryScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(hasAudioPermission) {
-        if (hasAudioPermission) {
+        if (hasAudioPermission && state.tracks.isEmpty()) {
             viewModel.refresh()
         }
     }
@@ -93,7 +93,7 @@ fun LocalLibraryScreen(
                 FeedbackStateCard(
                     title = stringResource(R.string.error_prefix, state.error.orEmpty()),
                     actionLabel = stringResource(R.string.action_retry),
-                    onAction = { viewModel.refresh() },
+                    onAction = { viewModel.refresh(force = true) },
                     isError = true
                 )
             }
@@ -110,7 +110,7 @@ fun LocalLibraryScreen(
                 FeedbackStateCard(
                     title = stringResource(R.string.empty_local_library),
                     actionLabel = stringResource(R.string.action_rescan),
-                    onAction = { viewModel.refresh() }
+                    onAction = { viewModel.refresh(force = true) }
                 )
             }
         }
@@ -128,6 +128,14 @@ fun LocalLibraryScreen(
                         label = stringResource(R.string.label_active_playlist),
                         buttonLabel = stringResource(R.string.action_change)
                     )
+                }
+                if (state.isRefreshing) {
+                    item {
+                        Text(
+                            text = stringResource(R.string.loading_refreshing_library),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
                 }
                 itemsIndexed(state.tracks) { index, track ->
                     var menuExpanded by remember { mutableStateOf(false) }

@@ -3,8 +3,9 @@ package com.example.musicplayer.playback
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import android.os.Build
+import androidx.annotation.OptIn
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
@@ -12,6 +13,7 @@ class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
 
+    @OptIn(markerClass = [UnstableApi::class])
     override fun onCreate() {
         super.onCreate()
         ensureNotificationChannel()
@@ -28,6 +30,7 @@ class PlaybackService : MediaSessionService() {
     }
 
 
+    @OptIn(markerClass = [UnstableApi::class])
     override fun onDestroy() {
         mediaSession?.let { session ->
             session.player.release()
@@ -39,8 +42,6 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun ensureNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,

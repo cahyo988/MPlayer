@@ -9,10 +9,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
@@ -44,6 +49,8 @@ fun PlaylistsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeletePlaylistDialog by remember { mutableStateOf(false) }
     var trackToRemoveId by remember { mutableStateOf<String?>(null) }
+    val selectedSummary = state.playlists.firstOrNull { it.id == state.selectedPlaylistId }
+    val canDeleteSelected = selectedSummary?.isSystemDefault == false
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -52,10 +59,10 @@ fun PlaylistsScreen(
                 .padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Button(onClick = { viewModel.createPlaylist() }) {
+            FilledTonalButton(onClick = { viewModel.createPlaylist() }) {
                 Text(stringResource(R.string.playlist_new))
             }
-            Button(onClick = { showDeletePlaylistDialog = true }, enabled = state.selectedPlaylistId != null) {
+            Button(onClick = { showDeletePlaylistDialog = true }, enabled = canDeleteSelected) {
                 Text(stringResource(R.string.playlist_delete))
             }
         }
@@ -87,20 +94,30 @@ fun PlaylistsScreen(
         Row(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier
-                    .weight(0.42f)
-                    .fillMaxHeight()
+                .weight(0.42f)
+                .fillMaxHeight()
             ) {
                 items(state.playlists) { playlist ->
-                    Row(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { viewModel.selectPlaylist(playlist.id) }
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = playlist.name,
-                            fontWeight = if (playlist.id == state.selectedPlaylistId) FontWeight.Bold else FontWeight.Normal
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .clickable { viewModel.selectPlaylist(playlist.id) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (playlist.id == state.selectedPlaylistId) {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            }
                         )
+                    ) {
+                        Row(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = playlist.name,
+                                fontWeight = if (playlist.id == state.selectedPlaylistId) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
                     }
                 }
             }
@@ -136,14 +153,14 @@ fun PlaylistsScreen(
                                 .fillMaxWidth()
                                 .weight(1f)
                         ) {
-                            items(detail.tracks) { track ->
+                            itemsIndexed(detail.tracks) { index, track ->
                                 TrackListItem(
                                     title = track.title,
                                     subtitle = "${track.artist} • ${track.album}",
                                     duration = formatDuration(track.durationMs),
                                     artworkUri = track.artworkUri,
                                     onClick = {
-                                        playbackController.setQueue(detail.tracks, detail.tracks.indexOf(track), true)
+                                        playbackController.setQueue(detail.tracks, index, true)
                                         onOpenNowPlaying()
                                     },
                                     trailingLabel = stringResource(R.string.playlist_remove_track),

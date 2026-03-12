@@ -3,12 +3,9 @@
     <string name="tab_local">Local</string>
     <string name="tab_drive">Drive</string>
     <string name="tab_playlists">Playlists</string>
+    <string name="tab_recents">Recents</string>
     <string name="tab_now_playing">Now Playing</string>
 
-    <string name="screen_local_title">Local Library</string>
-    <string name="screen_drive_title">Drive Library</string>
-    <string name="screen_playlists_title">Playlists</string>
-    <string name="screen_now_playing_title">Now Playing</string>
 
     <string name="label_active_playlist">Active playlist</string>
     <string name="playlist_default_name">My Playlist</string>
@@ -17,6 +14,7 @@
     <string name="permission_audio_required">Audio permission is required to scan local music.</string>
     <string name="action_grant_permission">Grant permission</string>
     <string name="loading_scanning_local_library">Scanning local library…</string>
+    <string name="loading_refreshing_library">Refreshing library in background…</string>
     <string name="error_prefix">Error: %1$s</string>
     <string name="action_retry">Retry</string>
     <string name="empty_local_library">No local music found.</string>
@@ -49,9 +47,6 @@
     <string name="drive_status_failed">Failed</string>
     <string name="drive_status_partial">Partial</string>
     <string name="drive_status_none">Not downloaded</string>
-    <string name="download_error_generic">Download failed</string>
-    <string name="download_error_network">Network issue while downloading</string>
-    <string name="download_error_invalid_url">Invalid download URL</string>
 
     <string name="offline_status_downloaded">Downloaded ✓</string>
     <string name="offline_status_downloading">Downloading…</string>
@@ -59,6 +54,7 @@
     <string name="offline_status_failed">Download failed</string>
     <string name="offline_status_remote">Remote</string>
     <string name="offline_summary_format">%1$s • %2$d/%3$d (%4$d%%)</string>
+    <string name="offline_download_limit_hint">Offline limit: up to 200 MB per track and 1 GB per source.</string>
 
     <string name="playlist_new">New playlist</string>
     <string name="playlist_delete">Delete</string>
@@ -69,6 +65,10 @@
     <string name="playlist_remove_track_confirm">Remove this track from playlist?</string>
 
     <string name="now_playing_no_track">No track selected</string>
+    <string name="recents_empty_title">No recently played tracks yet.</string>
+    <string name="recents_clear">Clear recents</string>
+    <string name="recents_clear_confirm">Clear all recently played tracks?</string>
+    <string name="track_subtitle_artist_album">%1$s • %2$s</string>
     <string name="now_playing_search_label">Search queue</string>
     <string name="now_playing_search_placeholder">Title, artist, album</string>
     <string name="now_playing_no_results">No matching tracks</string>
@@ -82,4 +82,5 @@
     <string name="control_shuffle_on">Shuffle: On</string>
     <string name="control_shuffle_off">Shuffle: Off</string>
     <string name="playback_time_format">%1$s / %2$s</string>
+    <string name="a11y_open_now_playing">Open now playing</string>
 </resources>

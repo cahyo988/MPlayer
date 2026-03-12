@@ -18,8 +18,11 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -73,7 +76,7 @@ fun DriveBrowserScreen(
             .padding(16.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
+            FilledTonalButton(
                 onClick = { viewModel.switchPage(DrivePage.LOAD) },
                 enabled = state.page != DrivePage.LOAD
             ) { Text(stringResource(R.string.drive_mode_load)) }
@@ -131,7 +134,7 @@ private fun LoadPage(state: DriveUiState, viewModel: DriveViewModel) {
         modifier = Modifier.padding(top = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Button(onClick = viewModel::addSource, enabled = !state.isLoading) {
+        FilledTonalButton(onClick = viewModel::addSource, enabled = !state.isLoading) {
             Text(stringResource(R.string.drive_save_source))
         }
     }
@@ -181,32 +184,45 @@ private fun SavedPage(
         contentPadding = PaddingValues(bottom = 4.dp)
     ) {
         items(state.sources, key = { it.id }) { source ->
-            Row(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(vertical = 4.dp)
                     .clickable {
                         viewModel.selectSource(source.id)
+                    },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (source.id == state.selectedSourceId) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.surface
                     }
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                )
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = source.title,
-                        fontWeight = if (source.id == state.selectedSourceId) FontWeight.Bold else FontWeight.Medium
-                    )
-                    Text(
-                        text = source.folderUrl,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (source.id == state.selectedSourceId) {
-                        SourceStatusRow(state)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = source.title,
+                            fontWeight = if (source.id == state.selectedSourceId) FontWeight.Bold else FontWeight.Medium
+                        )
+                        Text(
+                            text = source.folderUrl,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (source.id == state.selectedSourceId) {
+                            SourceStatusRow(state)
+                        }
                     }
-                }
-                Button(onClick = { sourceToDelete = source.id }) {
-                    Text(stringResource(R.string.action_delete))
+                    Button(onClick = { sourceToDelete = source.id }) {
+                        Text(stringResource(R.string.action_delete))
+                    }
                 }
             }
         }
@@ -229,6 +245,13 @@ private fun SavedPage(
             }
         }
     }
+
+    Text(
+        text = stringResource(R.string.offline_download_limit_hint),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 8.dp)
+    )
 
     when {
         state.isLoading -> TrackListSkeleton(modifier = Modifier.padding(top = 16.dp))

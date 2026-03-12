@@ -37,7 +37,8 @@ class MainActivity : ComponentActivity() {
         appContainer = AppContainer(applicationContext)
         playbackController = PlaybackController(
             context = applicationContext,
-            playbackUriResolver = appContainer.offlinePlaybackResolver
+            playbackUriResolver = appContainer.offlinePlaybackResolver,
+            onTrackPlayed = { track -> appContainer.playbackHistoryRepository.recordPlayedTrack(track) }
         )
         hasAudioPermission = isAudioPermissionGranted()
 
@@ -60,6 +61,11 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         playbackController.disconnect()
         super.onDestroy()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        hasAudioPermission = isAudioPermissionGranted()
     }
 
     private fun audioPermissionName(): String {

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,7 @@ fun PlaylistSelectorBar(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -55,10 +57,12 @@ fun PlaylistSelectorBar(
                 text = "$label: $activePlaylistName",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Button(onClick = onChangePlaylist) {
+            FilledTonalButton(onClick = onChangePlaylist) {
                 Text(buttonLabel)
             }
         }
@@ -68,14 +72,15 @@ fun PlaylistSelectorBar(
 @Composable
 fun FeedbackStateCard(
     title: String,
+    modifier: Modifier = Modifier,
     message: String? = null,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
-    isError: Boolean = false,
-    modifier: Modifier = Modifier
+    isError: Boolean = false
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isError) {
                 MaterialTheme.colorScheme.errorContainer
@@ -121,16 +126,17 @@ fun FeedbackStateCard(
 fun TrackListItem(
     title: String,
     subtitle: String,
+    modifier: Modifier = Modifier,
     duration: String? = null,
     artworkUri: String?,
     onClick: () -> Unit,
     onMoreClick: (() -> Unit)? = null,
     moreContentDescription: String? = null,
-    modifier: Modifier = Modifier,
     trailingLabel: String? = null
 ) {
     Row(
         modifier = modifier
+            .background(MaterialTheme.colorScheme.surface)
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),

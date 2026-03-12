@@ -9,37 +9,41 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF415F91),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFD8E2FF),
-    onPrimaryContainer = Color(0xFF001B3E),
-    secondary = Color(0xFF565E71),
-    onSecondary = Color.White,
-    surface = Color(0xFFF9F9FF),
-    onSurface = Color(0xFF1A1B21),
-    surfaceVariant = Color(0xFFE1E2EC),
-    onSurfaceVariant = Color(0xFF44474F),
-    error = Color(0xFFBA1A1A),
-    onError = Color.White,
-    errorContainer = Color(0xFFFFDAD6),
-    onErrorContainer = Color(0xFF410002)
+    primary = Color(0xFF1DB954),
+    onPrimary = Color(0xFF04130A),
+    primaryContainer = Color(0xFF169C46),
+    onPrimaryContainer = Color(0xFFE9FFEF),
+    secondary = Color(0xFF191414),
+    onSecondary = Color(0xFFEDEDED),
+    background = Color(0xFF0B0B0B),
+    onBackground = Color(0xFFF1F1F1),
+    surface = Color(0xFF111111),
+    onSurface = Color(0xFFF1F1F1),
+    surfaceVariant = Color(0xFF1C1C1C),
+    onSurfaceVariant = Color(0xFFB3B3B3),
+    error = Color(0xFFFF6B6B),
+    onError = Color(0xFF2A0000),
+    errorContainer = Color(0xFF451515),
+    onErrorContainer = Color(0xFFFFDAD7)
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFADC6FF),
-    onPrimary = Color(0xFF0D2F60),
-    primaryContainer = Color(0xFF284777),
-    onPrimaryContainer = Color(0xFFD8E2FF),
-    secondary = Color(0xFFBEC6DC),
-    onSecondary = Color(0xFF283041),
-    surface = Color(0xFF121318),
-    onSurface = Color(0xFFE2E2E9),
-    surfaceVariant = Color(0xFF44474F),
-    onSurfaceVariant = Color(0xFFC4C6D0),
-    error = Color(0xFFFFB4AB),
-    onError = Color(0xFF690005),
-    errorContainer = Color(0xFF93000A),
-    onErrorContainer = Color(0xFFFFDAD6)
+    primary = Color(0xFF1ED760),
+    onPrimary = Color(0xFF04130A),
+    primaryContainer = Color(0xFF169C46),
+    onPrimaryContainer = Color(0xFFE9FFEF),
+    secondary = Color(0xFF191414),
+    onSecondary = Color(0xFFEDEDED),
+    background = Color(0xFF000000),
+    onBackground = Color(0xFFF2F2F2),
+    surface = Color(0xFF121212),
+    onSurface = Color(0xFFF2F2F2),
+    surfaceVariant = Color(0xFF1F1F1F),
+    onSurfaceVariant = Color(0xFFB3B3B3),
+    error = Color(0xFFFF7B7B),
+    onError = Color(0xFF2B0000),
+    errorContainer = Color(0xFF4A1C1C),
+    onErrorContainer = Color(0xFFFFDAD7)
 )
 
 private val AppTypography = Typography()

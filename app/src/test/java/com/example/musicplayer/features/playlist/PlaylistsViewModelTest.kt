@@ -82,12 +82,17 @@ private class FakePlaylistsDataSource : PlaylistsDataSource {
 
     override fun observePlaylist(playlistId: Long): Flow<PlaylistDetail?> = playlists.map {
         val summary = it.firstOrNull { item -> item.id == playlistId } ?: return@map null
-        PlaylistDetail(summary.id, summary.name, tracksByPlaylist[playlistId].orEmpty())
+        PlaylistDetail(
+            id = summary.id,
+            name = summary.name,
+            tracks = tracksByPlaylist[playlistId].orEmpty(),
+            isSystemDefault = summary.isSystemDefault
+        )
     }
 
     override suspend fun createPlaylist(name: String): Long {
         val id = nextId++
-        playlists.value = playlists.value + PlaylistSummary(id, name)
+        playlists.value = playlists.value + PlaylistSummary(id = id, name = name)
         tracksByPlaylist[id] = mutableListOf()
         return id
     }
@@ -108,8 +113,19 @@ private class FakePlaylistsDataSource : PlaylistsDataSource {
     }
 
     override suspend fun ensureDefaultLocalPlaylist(): Long {
-        return playlists.value.firstOrNull { it.name == "All Local Songs" }?.id
-            ?: createPlaylist("All Local Songs")
+        val existing = playlists.value.firstOrNull {
+            it.name == "All Local Songs" && it.isSystemDefault
+        }
+        if (existing != null) return existing.id
+
+        val id = nextId++
+        playlists.value = playlists.value + PlaylistSummary(
+            id = id,
+            name = "All Local Songs",
+            isSystemDefault = true
+        )
+        tracksByPlaylist[id] = mutableListOf()
+        return id
     }
 
     override suspend fun syncDefaultLocalPlaylist(localTracks: List<Track>) {

@@ -6,6 +6,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.musicplayer.data.local.LocalMusicRepository
 import com.example.musicplayer.data.local.MediaStoreScanner
+import com.example.musicplayer.data.history.PlaybackHistoryRepository
 import com.example.musicplayer.data.offline.OfflineDownloadManager
 import com.example.musicplayer.data.offline.OfflinePlaybackResolver
 import com.example.musicplayer.data.offline.OfflineStatusRepository
@@ -21,11 +22,16 @@ class AppContainer(context: Context) {
         Room.databaseBuilder(appContext, AppDatabase::class.java, "music-player.db")
             .addMigrations(MIGRATION_1_2)
             .addMigrations(MIGRATION_2_3)
+            .addMigrations(MIGRATION_3_4)
             .build()
     }
 
     val localMusicRepository: LocalMusicRepository by lazy {
         LocalMusicRepository(MediaStoreScanner(appContext))
+    }
+
+    val playbackHistoryRepository: PlaybackHistoryRepository by lazy {
+        PlaybackHistoryRepository(database.playbackHistoryDao())
     }
 
     val playlistRepository: PlaylistRepository by lazy {
@@ -112,6 +118,29 @@ class AppContainer(context: Context) {
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_offline_track_status_sourceId ON offline_track_status(sourceId)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_offline_track_status_sourceId_trackId ON offline_track_status(sourceId, trackId)")
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS playback_history (
+                        trackId TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        artist TEXT NOT NULL,
+                        album TEXT NOT NULL,
+                        durationMs INTEGER NOT NULL,
+                        uri TEXT NOT NULL,
+                        source TEXT NOT NULL,
+                        artworkUri TEXT,
+                        driveFileId TEXT,
+                        mimeType TEXT,
+                        lastPlayedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_playback_history_lastPlayedAt ON playback_history(lastPlayedAt)")
             }
         }
     }

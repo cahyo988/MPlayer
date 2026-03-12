@@ -10,11 +10,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 data class LocalLibraryUiState(
     val tracks: List<Track> = emptyList(),
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val error: String? = null
 )
 
@@ -25,6 +27,7 @@ class LocalLibraryViewModel(
 
     private val _uiState = MutableStateFlow(LocalLibraryUiState(isLoading = true))
     val uiState: StateFlow<LocalLibraryUiState> = _uiState.asStateFlow()
+    private var refreshJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -37,19 +40,32 @@ class LocalLibraryViewModel(
         }
     }
 
-    fun refresh() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+    fun refresh(force: Boolean = false) {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            _uiState.update { state ->
+                val hasTracks = state.tracks.isNotEmpty()
+                state.copy(
+                    isLoading = !hasTracks,
+                    isRefreshing = hasTracks,
+                    error = null
+                )
+            }
             runCatching {
-                repository.refresh()
-                playlistsRepository.syncDefaultLocalPlaylist(repository.tracks().value)
+                val hasChanged = repository.refresh(force = force)
+                if (hasChanged) {
+                    playlistsRepository.syncDefaultLocalPlaylist(repository.tracks().value)
+                }
             }.onFailure { throwable ->
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         error = throwable.message ?: "Failed to load local songs"
                     )
                 }
+            }.onSuccess {
+                _uiState.update { it.copy(isLoading = false, isRefreshing = false) }
             }
         }
     }

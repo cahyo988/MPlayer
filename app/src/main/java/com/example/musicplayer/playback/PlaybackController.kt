@@ -6,11 +6,13 @@ import android.net.Uri
 import android.os.Looper
 import android.util.Log
 import androidx.annotation.MainThread
+import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.example.musicplayer.core.model.RepeatMode
@@ -22,15 +24,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @MainThread
 class PlaybackController(
     context: Context,
-    private val playbackUriResolver: PlaybackUriResolver = NoOpPlaybackUriResolver
+    private val playbackUriResolver: PlaybackUriResolver = NoOpPlaybackUriResolver,
+    private val onTrackPlayed: (Track) -> Unit = {}
 ) {
 
     private val appContext = context.applicationContext
@@ -42,14 +47,23 @@ class PlaybackController(
     private var connectGeneration: Long = 0
     private var queue: List<Track> = emptyList()
     private var lastErrorMessage: String? = null
+    private var lastReportedTrackId: String? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var queueJob: Job? = null
+    private var progressSyncJob: Job? = null
 
     private val _state = MutableStateFlow(PlaybackState())
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
     private val playerListener = object : Player.Listener {
-        override fun onIsPlayingChanged(isPlaying: Boolean) = publishState()
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) {
+                startProgressSync()
+            } else {
+                stopProgressSync()
+            }
+            publishState()
+        }
         override fun onPlaybackStateChanged(playbackState: Int) = publishState()
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = publishState()
         override fun onPositionDiscontinuity(
@@ -77,12 +91,28 @@ class PlaybackController(
         }
     }
 
+    private fun startProgressSync() {
+        if (progressSyncJob?.isActive == true) return
+        progressSyncJob = scope.launch {
+            while (isActive && controller?.isPlaying == true) {
+                publishState()
+                delay(1000)
+            }
+        }
+    }
+
+    private fun stopProgressSync() {
+        progressSyncJob?.cancel()
+        progressSyncJob = null
+    }
+
     private fun assertMainThread() {
         check(Looper.myLooper() == Looper.getMainLooper()) {
             "PlaybackController must be called on main thread"
         }
     }
 
+    @OptIn(markerClass = [UnstableApi::class])
     fun connect(onConnected: () -> Unit = {}) {
         assertMainThread()
 
@@ -259,9 +289,11 @@ class PlaybackController(
             it.removeListener(playerListener)
             it.release()
         }
+        stopProgressSync()
         controller = null
         queue = emptyList()
         lastErrorMessage = null
+        lastReportedTrackId = null
         queueJob?.cancel()
         queueJob = null
         scope.cancel()
@@ -326,6 +358,16 @@ class PlaybackController(
             shuffleEnabled = current.shuffleModeEnabled,
             errorMessage = lastErrorMessage
         )
+
+        if (activeTrack != null && shouldReportPlayedTrack(
+                activeTrackId = activeTrack.id,
+                isPlaying = current.isPlaying,
+                positionMs = current.currentPosition,
+                lastReportedTrackId = lastReportedTrackId
+            )) {
+            lastReportedTrackId = activeTrack.id
+            onTrackPlayed(activeTrack)
+        }
     }
 
     companion object {
@@ -336,6 +378,19 @@ class PlaybackController(
 
         private const val SAMPLE_URL =
             "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+        private const val MIN_PLAYED_POSITION_MS = 1_000L
+
+        internal fun shouldReportPlayedTrack(
+            activeTrackId: String?,
+            isPlaying: Boolean,
+            positionMs: Long,
+            lastReportedTrackId: String?
+        ): Boolean {
+            if (activeTrackId.isNullOrBlank()) return false
+            if (!isPlaying) return false
+            if (positionMs < MIN_PLAYED_POSITION_MS) return false
+            return activeTrackId != lastReportedTrackId
+        }
     }
 
     private fun isAllowedPlaybackTrack(track: Track): Boolean {

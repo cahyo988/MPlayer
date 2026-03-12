@@ -13,13 +13,15 @@ import java.util.concurrent.ConcurrentHashMap
 
 data class PlaylistSummary(
     val id: Long,
-    val name: String
+    val name: String,
+    val isSystemDefault: Boolean = false
 )
 
 data class PlaylistDetail(
     val id: Long,
     val name: String,
-    val tracks: List<Track>
+    val tracks: List<Track>,
+    val isSystemDefault: Boolean = false
 )
 
 class PlaylistRepository(
@@ -51,7 +53,13 @@ class PlaylistRepository(
 
     override fun observePlaylists(): Flow<List<PlaylistSummary>> =
         dao.observePlaylists().map { entities ->
-            entities.map { PlaylistSummary(id = it.id, name = it.name) }
+            entities.map {
+                PlaylistSummary(
+                    id = it.id,
+                    name = it.name,
+                    isSystemDefault = it.isSystemDefault
+                )
+            }
         }
 
     override fun observePlaylist(playlistId: Long): Flow<PlaylistDetail?> =
@@ -75,7 +83,8 @@ class PlaylistRepository(
                             driveFileId = row.driveFileId,
                             mimeType = row.mimeType
                         )
-                    }
+                    },
+                    isSystemDefault = it.playlist.isSystemDefault
                 )
             }
         }
