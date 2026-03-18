@@ -5,13 +5,19 @@ import android.net.Uri
 import com.example.musicplayer.core.model.Track
 import com.example.musicplayer.data.offline.model.OfflineTrackStatus
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlin.io.DEFAULT_BUFFER_SIZE
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 
 class OfflineDownloadManager(
@@ -21,12 +27,13 @@ class OfflineDownloadManager(
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val runningBySource = ConcurrentHashMap.newKeySet<Long>()
+    private val jobsBySource = ConcurrentHashMap<Long, Job>()
+    private val activeConnectionsBySource = ConcurrentHashMap<Long, MutableSet<HttpURLConnection>>()
+    private val startStopLock = Any()
 
-    override fun downloadSource(sourceId: Long, tracks: List<Track>) {
-        if (tracks.isEmpty()) return
-        if (!runningBySource.add(sourceId)) return
-
-        scope.launch {
+    override fun downloadSource(sourceId: Long, tracks: List<Track>): Boolean {
+        if (tracks.isEmpty()) return false
+        val job = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 offlineStatusRepository.seedSourceTracks(sourceId, tracks)
                 tracks.forEach { track ->
@@ -36,10 +43,10 @@ class OfflineDownloadManager(
                 val sourceDir = File(appContext.filesDir, "offline_drive/$sourceId").apply { mkdirs() }
                 var sourceBytes = directorySizeBytes(sourceDir)
                 val maxSourceBytes = maxSourceSizeBytes()
-                tracks.forEach { track ->
+                for (track in tracks) {
                     var target: File? = null
                     var tempTarget: File? = null
-                    runCatching {
+                    try {
                         check(sourceBytes < maxSourceBytes) { "Source storage quota reached" }
                         offlineStatusRepository.markTrackStatus(sourceId, track, OfflineTrackStatus.DOWNLOADING)
                         ensureTrustedDownloadUrl(track.uri)
@@ -53,7 +60,12 @@ class OfflineDownloadManager(
                         check(maxBytes > 0L) { "Source storage quota reached" }
 
                         tempTarget = tempFileFor(requireNotNull(target))
-                        val downloadedBytes = downloadFile(track.uri, requireNotNull(tempTarget), maxBytes)
+                        val downloadedBytes = downloadFile(
+                            sourceId = sourceId,
+                            remoteUrl = track.uri,
+                            target = requireNotNull(tempTarget),
+                            maxBytes = maxBytes
+                        )
                         replaceTargetFile(requireNotNull(tempTarget), requireNotNull(target))
                         sourceBytes += downloadedBytes - existingSize
                         offlineStatusRepository.markTrackStatus(
@@ -63,7 +75,10 @@ class OfflineDownloadManager(
                             localFilePath = requireNotNull(target).absolutePath,
                             errorMessage = null
                         )
-                    }.onFailure { throwable ->
+                    } catch (cancellationException: CancellationException) {
+                        tempTarget?.takeIf { it.exists() }?.delete()
+                        throw cancellationException
+                    } catch (throwable: Throwable) {
                         tempTarget?.takeIf { it.exists() }?.delete()
                         offlineStatusRepository.markTrackStatus(
                             sourceId = sourceId,
@@ -74,11 +89,39 @@ class OfflineDownloadManager(
                         )
                     }
                 }
+            } catch (_: CancellationException) {
+                offlineStatusRepository.markPendingAsFailed(sourceId, "Cancelled by user")
+                throw CancellationException("Cancelled by user")
             } finally {
+                jobsBySource.remove(sourceId)
+                activeConnectionsBySource.remove(sourceId)?.forEach { connection ->
+                    runCatching { connection.disconnect() }
+                }
                 runningBySource.remove(sourceId)
                 offlineStatusRepository.recomputeAndPersistSummary(sourceId)
             }
         }
+
+        synchronized(startStopLock) {
+            if (runningBySource.contains(sourceId)) {
+                return false
+            }
+            jobsBySource[sourceId] = job
+            runningBySource.add(sourceId)
+            job.start()
+        }
+        return true
+    }
+
+    override fun cancelSource(sourceId: Long): Boolean {
+        val job = synchronized(startStopLock) {
+            jobsBySource[sourceId]
+        } ?: return false
+        activeConnectionsBySource[sourceId]?.forEach { connection ->
+            runCatching { connection.disconnect() }
+        }
+        job.cancel(CancellationException("Cancelled by user"))
+        return true
     }
 
     private fun tempFileFor(target: File): File {
@@ -134,15 +177,15 @@ class OfflineDownloadManager(
         check(isTrustedDownloadHost(host, allowDocsGoogleusercontent)) { "Untrusted download host" }
     }
 
-    private fun downloadFile(remoteUrl: String, target: File, maxBytes: Long): Long {
+    private suspend fun downloadFile(sourceId: Long, remoteUrl: String, target: File, maxBytes: Long): Long {
         val firstConnection = URL(remoteUrl).openConnection() as HttpURLConnection
+        registerConnection(sourceId, firstConnection)
         firstConnection.instanceFollowRedirects = false
         firstConnection.connectTimeout = 12_000
         firstConnection.readTimeout = 20_000
         firstConnection.requestMethod = "GET"
-        firstConnection.connect()
-
         val finalUrl = try {
+            firstConnection.connect()
             val location = firstConnection.getHeaderField("Location")
             if (firstConnection.responseCode in 300..399 && !location.isNullOrBlank()) {
                 val redirected = URL(URL(remoteUrl), location).toString()
@@ -153,9 +196,11 @@ class OfflineDownloadManager(
             }
         } finally {
             firstConnection.disconnect()
+            unregisterConnection(sourceId, firstConnection)
         }
 
         val connection = URL(finalUrl).openConnection() as HttpURLConnection
+        registerConnection(sourceId, connection)
         connection.connectTimeout = 12_000
         connection.readTimeout = 20_000
         connection.instanceFollowRedirects = false
@@ -179,6 +224,7 @@ class OfflineDownloadManager(
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                     var total = 0L
                     while (true) {
+                        currentCoroutineContext().ensureActive()
                         val read = input.read(buffer)
                         if (read < 0) break
                         total += read
@@ -192,7 +238,19 @@ class OfflineDownloadManager(
             }
         } finally {
             connection.disconnect()
+            unregisterConnection(sourceId, connection)
         }
+    }
+
+    private fun registerConnection(sourceId: Long, connection: HttpURLConnection) {
+        val set = activeConnectionsBySource.getOrPut(sourceId) {
+            Collections.newSetFromMap(ConcurrentHashMap<HttpURLConnection, Boolean>())
+        }
+        set.add(connection)
+    }
+
+    private fun unregisterConnection(sourceId: Long, connection: HttpURLConnection) {
+        activeConnectionsBySource[sourceId]?.remove(connection)
     }
 
     private fun maxTrackSizeBytes(): Long {
@@ -244,5 +302,6 @@ class OfflineDownloadManager(
 }
 
 interface OfflineDownloadStarter {
-    fun downloadSource(sourceId: Long, tracks: List<Track>)
+    fun downloadSource(sourceId: Long, tracks: List<Track>): Boolean
+    fun cancelSource(sourceId: Long): Boolean
 }

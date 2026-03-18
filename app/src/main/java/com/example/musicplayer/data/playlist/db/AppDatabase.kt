@@ -10,9 +10,10 @@ import androidx.room.RoomDatabase
         DriveSourceEntity::class,
         OfflineSourceStatusEntity::class,
         OfflineTrackStatusEntity::class,
-        PlaybackHistoryEntity::class
+        PlaybackHistoryEntity::class,
+        FavoriteTrackEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -20,4 +21,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun driveSourceDao(): DriveSourceDao
     abstract fun offlineStatusDao(): OfflineStatusDao
     abstract fun playbackHistoryDao(): PlaybackHistoryDao
+    abstract fun favoriteTrackDao(): FavoriteTrackDao
 }

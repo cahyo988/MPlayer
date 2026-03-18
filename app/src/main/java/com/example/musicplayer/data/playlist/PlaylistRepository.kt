@@ -93,6 +93,13 @@ class PlaylistRepository(
         return dao.insertPlaylist(PlaylistEntity(name = name.trim().ifBlank { "New Playlist" }))
     }
 
+    override suspend fun renamePlaylist(playlistId: Long, name: String) {
+        val playlist = dao.getPlaylistById(playlistId) ?: return
+        if (playlist.isSystemDefault) return
+        val safeName = name.trim().ifBlank { playlist.name }
+        dao.updatePlaylistName(playlistId, safeName)
+    }
+
     override suspend fun deletePlaylist(playlistId: Long) {
         val playlist = dao.getPlaylistById(playlistId) ?: return
         if (playlist.isSystemDefault) return
@@ -123,6 +130,23 @@ class PlaylistRepository(
 
     override suspend fun removeTrack(playlistId: Long, trackId: String) {
         dao.deleteTrack(playlistId, trackId)
+    }
+
+    override suspend fun moveTrack(playlistId: Long, trackId: String, direction: Int) {
+        val lock = playlistLocks.getOrPut(playlistId) { Mutex() }
+        lock.withLock {
+            val tracks = dao.getTracksByPlaylist(playlistId)
+            val fromIndex = tracks.indexOfFirst { it.trackId == trackId }
+            if (fromIndex < 0) return
+
+            val toIndex = (fromIndex + direction).coerceIn(0, tracks.lastIndex)
+            if (toIndex == fromIndex) return
+
+            val fromTrack = tracks[fromIndex]
+            val toTrack = tracks[toIndex]
+            dao.updateTrackPosition(playlistId, fromTrack.trackId, toTrack.position)
+            dao.updateTrackPosition(playlistId, toTrack.trackId, fromTrack.position)
+        }
     }
 
     companion object {

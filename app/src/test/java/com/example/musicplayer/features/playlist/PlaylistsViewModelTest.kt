@@ -62,6 +62,38 @@ class PlaylistsViewModelTest {
         assertTrue(dataSource.tracksByPlaylist[playlistId].orEmpty().size == 5)
     }
 
+    @Test
+    fun renameSelectedPlaylistUpdatesName() = runTest {
+        val dataSource = FakePlaylistsDataSource()
+        val playlistId = dataSource.createPlaylist("Before")
+        val viewModel = PlaylistsViewModel(dataSource)
+        viewModel.selectPlaylist(playlistId)
+
+        viewModel.renameSelectedPlaylist("After")
+        advanceUntilIdle()
+
+        assertEquals("After", dataSource.playlists.value.first { it.id == playlistId }.name)
+    }
+
+    @Test
+    fun moveTrackUpAndDownReordersTracks() = runTest {
+        val dataSource = FakePlaylistsDataSource()
+        val playlistId = dataSource.createPlaylist("My Playlist")
+        dataSource.addTrack(playlistId, sampleTrack("1"))
+        dataSource.addTrack(playlistId, sampleTrack("2"))
+        dataSource.addTrack(playlistId, sampleTrack("3"))
+        val viewModel = PlaylistsViewModel(dataSource)
+        viewModel.selectPlaylist(playlistId)
+
+        viewModel.moveTrackUp("3")
+        advanceUntilIdle()
+        assertEquals(listOf("1", "3", "2"), dataSource.tracksByPlaylist[playlistId].orEmpty().map { it.id })
+
+        viewModel.moveTrackDown("1")
+        advanceUntilIdle()
+        assertEquals(listOf("3", "1", "2"), dataSource.tracksByPlaylist[playlistId].orEmpty().map { it.id })
+    }
+
     private fun sampleTrack(id: String): Track = Track(
         id = id,
         title = "Song $id",
@@ -102,6 +134,12 @@ private class FakePlaylistsDataSource : PlaylistsDataSource {
         tracksByPlaylist.remove(playlistId)
     }
 
+    override suspend fun renamePlaylist(playlistId: Long, name: String) {
+        playlists.value = playlists.value.map {
+            if (it.id == playlistId && !it.isSystemDefault) it.copy(name = name.trim().ifBlank { it.name }) else it
+        }
+    }
+
     override suspend fun addTrack(playlistId: Long, track: Track) {
         val list = tracksByPlaylist.getOrPut(playlistId) { mutableListOf() }
         list.removeAll { it.id == track.id }
@@ -110,6 +148,16 @@ private class FakePlaylistsDataSource : PlaylistsDataSource {
 
     override suspend fun removeTrack(playlistId: Long, trackId: String) {
         tracksByPlaylist[playlistId]?.removeAll { it.id == trackId }
+    }
+
+    override suspend fun moveTrack(playlistId: Long, trackId: String, direction: Int) {
+        val list = tracksByPlaylist[playlistId] ?: return
+        val from = list.indexOfFirst { it.id == trackId }
+        if (from < 0) return
+        val to = (from + direction).coerceIn(0, list.lastIndex)
+        if (to == from) return
+        val item = list.removeAt(from)
+        list.add(to, item)
     }
 
     override suspend fun ensureDefaultLocalPlaylist(): Long {

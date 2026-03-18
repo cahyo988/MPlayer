@@ -72,7 +72,7 @@ class PlaybackHistoryRepositoryTest {
         repository.recordPlayedTrack(track("1"))
         advanceUntilIdle()
 
-        repository.clear()
+        repository.clearRecents()
         advanceUntilIdle()
 
         assertEquals(emptyList<PlaybackHistoryEntity>(), dao.observeRecent(50).first())

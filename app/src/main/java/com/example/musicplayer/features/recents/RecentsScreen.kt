@@ -28,6 +28,7 @@ fun RecentsScreen(
     modifier: Modifier = Modifier,
     viewModel: RecentsViewModel,
     playbackController: PlaybackController,
+    autoPlayEnabled: Boolean,
     onOpenNowPlaying: () -> Unit
 ) {
     val tracks by viewModel.recentTracks.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -71,7 +72,7 @@ fun RecentsScreen(
                 duration = formatDuration(track.durationMs),
                 artworkUri = track.artworkUri,
                 onClick = {
-                    playbackController.setQueue(tracks, index, playWhenReady = true)
+                    playbackController.setQueue(tracks, index, playWhenReady = autoPlayEnabled)
                     onOpenNowPlaying()
                 }
             )

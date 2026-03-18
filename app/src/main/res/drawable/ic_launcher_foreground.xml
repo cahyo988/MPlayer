@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/ic_launcher_ring"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+    <path
+        android:fillColor="@color/ic_launcher_note_shadow"
+        android:pathData="M66,26v40.5A12.5,12.5 0 1,0 73,77V42h13V26H66z" />
+    <path
+        android:fillColor="@color/ic_launcher_note_primary"
+        android:pathData="M62,22v44.5A13.5,13.5 0 1,0 70,78V39h16V22H62z" />
+</vector>

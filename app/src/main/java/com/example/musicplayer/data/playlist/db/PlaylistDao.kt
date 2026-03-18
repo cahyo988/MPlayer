@@ -25,6 +25,9 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlists WHERE id = :playlistId LIMIT 1")
     suspend fun getPlaylistById(playlistId: Long): PlaylistEntity?
 
+    @Query("UPDATE playlists SET name = :name WHERE id = :playlistId")
+    suspend fun updatePlaylistName(playlistId: Long, name: String)
+
     @Query("DELETE FROM playlists WHERE id = :playlistId")
     suspend fun deletePlaylist(playlistId: Long)
 
@@ -51,6 +54,9 @@ interface PlaylistDao {
 
     @Query("SELECT trackId FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun getTrackIds(playlistId: Long): List<String>
+
+    @Query("SELECT * FROM playlist_tracks WHERE playlistId = :playlistId ORDER BY position ASC")
+    suspend fun getTracksByPlaylist(playlistId: Long): List<PlaylistTrackEntity>
 
     @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun nextPosition(playlistId: Long): Int

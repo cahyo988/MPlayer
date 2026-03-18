@@ -7,14 +7,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -22,18 +23,24 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.musicplayer.R
 import com.example.musicplayer.core.model.Track
+import com.example.musicplayer.features.favorites.FavoritesViewModel
 import com.example.musicplayer.playback.PlaybackController
 import com.example.musicplayer.ui.components.FeedbackStateCard
 import com.example.musicplayer.ui.components.PlaylistSelectorBar
 import com.example.musicplayer.ui.components.TrackListItem
 import com.example.musicplayer.ui.components.TrackListSkeleton
+import com.example.musicplayer.ui.search.filterTracks
+import kotlinx.coroutines.launch
 
 @Composable
 fun LocalLibraryScreen(
     modifier: Modifier = Modifier,
     viewModel: LocalLibraryViewModel,
+    favoritesViewModel: FavoritesViewModel,
     playbackController: PlaybackController,
     hasAudioPermission: Boolean,
+    autoPlayEnabled: Boolean,
+    autoRescanOnOpen: Boolean,
     onRequestPermission: () -> Unit,
     activePlaylistName: String,
     onChangePlaylist: () -> Unit,
@@ -41,9 +48,11 @@ fun LocalLibraryScreen(
     onOpenNowPlaying: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var searchQuery by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(hasAudioPermission) {
-        if (hasAudioPermission && state.tracks.isEmpty()) {
+    LaunchedEffect(hasAudioPermission, autoRescanOnOpen, state.tracks.isEmpty()) {
+        if (hasAudioPermission && autoRescanOnOpen && state.tracks.isEmpty()) {
             viewModel.refresh()
         }
     }
@@ -116,6 +125,9 @@ fun LocalLibraryScreen(
         }
 
         else -> {
+            val filteredTracks = remember(state.tracks, searchQuery) {
+                filterTracks(state.tracks, searchQuery)
+            }
             LazyColumn(
                 modifier = modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 16.dp)
@@ -129,6 +141,15 @@ fun LocalLibraryScreen(
                         buttonLabel = stringResource(R.string.action_change)
                     )
                 }
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        label = { Text(stringResource(R.string.local_search_label)) },
+                        placeholder = { Text(stringResource(R.string.local_search_placeholder)) },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
                 if (state.isRefreshing) {
                     item {
                         Text(
@@ -137,27 +158,58 @@ fun LocalLibraryScreen(
                         )
                     }
                 }
-                itemsIndexed(state.tracks) { index, track ->
-                    var menuExpanded by remember { mutableStateOf(false) }
-                    TrackListItem(
-                        title = track.title,
-                        subtitle = "${track.artist} • ${track.album}",
-                        duration = formatDuration(track.durationMs),
-                        artworkUri = track.artworkUri,
-                        onClick = {
-                            playbackController.setQueue(state.tracks, startIndex = index, playWhenReady = true)
-                            onOpenNowPlaying()
-                        },
-                        onMoreClick = { menuExpanded = true },
-                        moreContentDescription = stringResource(R.string.action_track_actions_for, track.title)
-                    )
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_add_to_playlist)) },
+                if (state.tracks.isEmpty()) {
+                    item {
+                        FeedbackStateCard(
+                            title = stringResource(R.string.empty_local_library),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                } else if (filteredTracks.isEmpty()) {
+                    item {
+                        FeedbackStateCard(
+                            title = stringResource(R.string.search_no_results),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                } else {
+                    itemsIndexed(filteredTracks, key = { _, track -> track.id }) { index, track ->
+                        var menuExpanded by remember { mutableStateOf(false) }
+                        TrackListItem(
+                            title = track.title,
+                            subtitle = "${track.artist} • ${track.album}",
+                            duration = formatDuration(track.durationMs),
+                            artworkUri = track.artworkUri,
                             onClick = {
-                                menuExpanded = false
-                                onAddToPlaylist(track)
-                            }
+                                playbackController.setQueue(
+                                    filteredTracks,
+                                    startIndex = index,
+                                    playWhenReady = autoPlayEnabled
+                                )
+                                onOpenNowPlaying()
+                            },
+                            moreMenuExpanded = menuExpanded,
+                            onMoreMenuExpandedChange = { menuExpanded = it },
+                            moreMenuContent = {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_toggle_favorite)) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        scope.launch {
+                                            val isFavorite = favoritesViewModel.isFavoriteNow(track.id)
+                                            favoritesViewModel.toggleFavorite(track, shouldFavorite = !isFavorite)
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_add_to_playlist)) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onAddToPlaylist(track)
+                                    }
+                                )
+                            },
+                            moreContentDescription = stringResource(R.string.action_track_actions_for, track.title)
                         )
                     }
                 }

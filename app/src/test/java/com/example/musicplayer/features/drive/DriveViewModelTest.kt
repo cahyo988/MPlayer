@@ -103,6 +103,55 @@ class DriveViewModelTest {
         assertTrue(viewModel.uiState.value.sources.isEmpty())
     }
 
+    @Test
+    fun retryFailedDownloadsOnlyFailedTracks() = runTest {
+        val offline = FakeOfflineStatusRepository(
+            failedTracks = listOf(sampleTrack("failed-1"), sampleTrack("failed-2"))
+        )
+        val downloadStarter = FakeDownloadStarter()
+        val viewModel = DriveViewModel(
+            FakeDriveDataSource(),
+            FakeDriveSourcesDataSource(),
+            offline,
+            downloadStarter
+        )
+
+        viewModel.updateFolderUrl("https://drive.google.com/drive/folders/folderId")
+        viewModel.updateSourceTitle("My Source")
+        viewModel.addSource()
+        advanceUntilIdle()
+
+        viewModel.retryFailedForSelectedSource()
+        advanceUntilIdle()
+
+        assertEquals(1, downloadStarter.downloadCalls)
+        assertEquals(2, downloadStarter.lastTracks.size)
+        assertTrue(downloadStarter.lastTracks.all { it.id.contains("failed-") })
+    }
+
+    @Test
+    fun cancelDownloadDelegatesToStarter() = runTest {
+        val downloadStarter = FakeDownloadStarter(cancelResult = true)
+        val viewModel = DriveViewModel(
+            FakeDriveDataSource(),
+            FakeDriveSourcesDataSource(),
+            FakeOfflineStatusRepository(),
+            downloadStarter
+        )
+
+        viewModel.updateFolderUrl("https://drive.google.com/drive/folders/folderId")
+        viewModel.updateSourceTitle("My Source")
+        viewModel.addSource()
+        advanceUntilIdle()
+
+        val selectedId = viewModel.uiState.value.selectedSourceId
+        viewModel.cancelDownloadForSelectedSource()
+        advanceUntilIdle()
+
+        assertEquals(selectedId, downloadStarter.lastCancelledSourceId)
+        assertEquals("Download cancelled", viewModel.uiState.value.message)
+    }
+
     private fun sampleTrack(id: String) = Track(
         id = "drive:$id",
         title = "Song $id.mp3",
@@ -162,7 +211,9 @@ private class FakeDriveSourcesDataSource : DriveSourcesDataSource {
     }
 }
 
-private class FakeOfflineStatusRepository : DriveOfflineDataSource {
+private class FakeOfflineStatusRepository(
+    private val failedTracks: List<Track> = emptyList()
+) : DriveOfflineDataSource {
     override fun observeSourceSummary(sourceId: Long): Flow<SourceOfflineSummary?> = flowOf(
         SourceOfflineSummary(
             sourceId = sourceId,
@@ -180,8 +231,30 @@ private class FakeOfflineStatusRepository : DriveOfflineDataSource {
 
     override suspend fun clearSource(sourceId: Long) = Unit
     override suspend fun seedSourceTracks(sourceId: Long, tracks: List<Track>) = Unit
+    override suspend fun getTracksByStatus(sourceId: Long, status: OfflineTrackStatus): List<Track> {
+        return if (status == OfflineTrackStatus.FAILED) failedTracks else emptyList()
+    }
 }
 
-private class FakeDownloadStarter : OfflineDownloadStarter {
-    override fun downloadSource(sourceId: Long, tracks: List<Track>) = Unit
+private class FakeDownloadStarter(
+    private val cancelResult: Boolean = false
+) : OfflineDownloadStarter {
+    var lastSourceId: Long? = null
+    var lastTracks: List<Track> = emptyList()
+    var downloadCalls: Int = 0
+    var lastCancelledSourceId: Long? = null
+    var shouldStartDownload: Boolean = true
+
+    override fun downloadSource(sourceId: Long, tracks: List<Track>): Boolean {
+        if (!shouldStartDownload) return false
+        downloadCalls += 1
+        lastSourceId = sourceId
+        lastTracks = tracks
+        return true
+    }
+
+    override fun cancelSource(sourceId: Long): Boolean {
+        lastCancelledSourceId = sourceId
+        return cancelResult
+    }
 }

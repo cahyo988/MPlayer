@@ -88,6 +88,19 @@ class PlaylistsViewModel(
         }
     }
 
+    fun renameSelectedPlaylist(name: String) {
+        val selectedId = _uiState.value.selectedPlaylistId ?: return
+        viewModelScope.launch {
+            runCatching {
+                repository.renamePlaylist(selectedId, name)
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(error = throwable.message ?: "Failed to rename playlist")
+                }
+            }
+        }
+    }
+
     fun deleteSelectedPlaylist() {
         val selectedId = _uiState.value.selectedPlaylistId ?: return
         viewModelScope.launch {
@@ -129,6 +142,27 @@ class PlaylistsViewModel(
             }.onFailure { throwable ->
                 _uiState.update {
                     it.copy(error = throwable.message ?: "Failed to remove track from playlist")
+                }
+            }
+        }
+    }
+
+    fun moveTrackUp(trackId: String) {
+        moveTrack(trackId, direction = -1)
+    }
+
+    fun moveTrackDown(trackId: String) {
+        moveTrack(trackId, direction = 1)
+    }
+
+    private fun moveTrack(trackId: String, direction: Int) {
+        val selectedId = _uiState.value.selectedPlaylistId ?: return
+        viewModelScope.launch {
+            runCatching {
+                repository.moveTrack(selectedId, trackId, direction)
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(error = throwable.message ?: "Failed to reorder track")
                 }
             }
         }

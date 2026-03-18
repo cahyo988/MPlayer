@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -131,9 +133,13 @@ fun TrackListItem(
     artworkUri: String?,
     onClick: () -> Unit,
     onMoreClick: (() -> Unit)? = null,
+    moreMenuExpanded: Boolean = false,
+    onMoreMenuExpandedChange: ((Boolean) -> Unit)? = null,
+    moreMenuContent: (@Composable ColumnScope.() -> Unit)? = null,
     moreContentDescription: String? = null,
     trailingLabel: String? = null
 ) {
+    val hasMoreAction = onMoreClick != null || onMoreMenuExpandedChange != null
     Row(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surface)
@@ -172,10 +178,21 @@ fun TrackListItem(
                 text = duration,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = if (onMoreClick != null) 8.dp else 0.dp)
+                modifier = Modifier.padding(end = if (hasMoreAction) 8.dp else 0.dp)
             )
         }
-        if (onMoreClick != null) {
+        if (moreMenuContent != null && onMoreMenuExpandedChange != null) {
+            Box {
+                IconButton(onClick = { onMoreMenuExpandedChange(true) }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = moreContentDescription)
+                }
+                DropdownMenu(
+                    expanded = moreMenuExpanded,
+                    onDismissRequest = { onMoreMenuExpandedChange(false) },
+                    content = moreMenuContent
+                )
+            }
+        } else if (onMoreClick != null) {
             IconButton(onClick = onMoreClick) {
                 Icon(Icons.Default.MoreVert, contentDescription = moreContentDescription)
             }

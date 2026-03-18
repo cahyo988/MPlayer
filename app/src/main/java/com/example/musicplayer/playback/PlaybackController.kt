@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.max
 
 @MainThread
 class PlaybackController(
@@ -51,6 +52,8 @@ class PlaybackController(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var queueJob: Job? = null
     private var progressSyncJob: Job? = null
+    private var sleepTimerJob: Job? = null
+    private var sleepTimerDeadlineMs: Long? = null
 
     private val _state = MutableStateFlow(PlaybackState())
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
@@ -280,6 +283,35 @@ class PlaybackController(
         publishState()
     }
 
+    fun setSleepTimer(minutes: Int) {
+        assertMainThread()
+        val durationMs = minutes.coerceAtLeast(0) * 60_000L
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        sleepTimerDeadlineMs = null
+        if (durationMs <= 0L) {
+            publishState()
+            return
+        }
+
+        val deadline = System.currentTimeMillis() + durationMs
+        sleepTimerDeadlineMs = deadline
+        sleepTimerJob = scope.launch {
+            while (isActive) {
+                val remaining = (deadline - System.currentTimeMillis()).coerceAtLeast(0L)
+                if (remaining == 0L) {
+                    pause()
+                    sleepTimerDeadlineMs = null
+                    publishState()
+                    return@launch
+                }
+                publishState()
+                delay(minOf(1_000L, max(250L, remaining)))
+            }
+        }
+        publishState()
+    }
+
     fun disconnect() {
         assertMainThread()
 
@@ -294,6 +326,9 @@ class PlaybackController(
         queue = emptyList()
         lastErrorMessage = null
         lastReportedTrackId = null
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        sleepTimerDeadlineMs = null
         queueJob?.cancel()
         queueJob = null
         scope.cancel()
@@ -356,7 +391,10 @@ class PlaybackController(
             durationMs = if (current.duration == C.TIME_UNSET) 0L else current.duration,
             repeatMode = repeatMode,
             shuffleEnabled = current.shuffleModeEnabled,
-            errorMessage = lastErrorMessage
+            errorMessage = lastErrorMessage,
+            sleepTimerRemainingMs = sleepTimerDeadlineMs
+                ?.let { (it - System.currentTimeMillis()).coerceAtLeast(0L) }
+                ?: 0L
         )
 
         if (activeTrack != null && shouldReportPlayedTrack(

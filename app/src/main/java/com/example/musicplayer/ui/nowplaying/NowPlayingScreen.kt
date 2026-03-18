@@ -71,6 +71,7 @@ import com.example.musicplayer.ui.components.TrackListItem
 @Composable
 fun NowPlayingScreen(
     playbackController: PlaybackController,
+    autoPlayEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
     val state by playbackController.state.collectAsStateWithLifecycle()
@@ -334,7 +335,10 @@ fun NowPlayingScreen(
                                     ),
                                     artworkUri = result.track.artworkUri,
                                     onClick = {
-                                        playbackController.jumpToQueueIndex(result.index, playWhenReady = true)
+                                        playbackController.jumpToQueueIndex(
+                                            result.index,
+                                            playWhenReady = autoPlayEnabled
+                                        )
                                     }
                                 )
                             }

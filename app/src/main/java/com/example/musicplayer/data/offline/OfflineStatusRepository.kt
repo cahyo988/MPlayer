@@ -33,6 +33,7 @@ interface DriveOfflineDataSource {
     fun observeTrackStates(sourceId: Long): Flow<List<OfflineTrackState>>
     suspend fun seedSourceTracks(sourceId: Long, tracks: List<Track>)
     suspend fun clearSource(sourceId: Long)
+    suspend fun getTracksByStatus(sourceId: Long, status: OfflineTrackStatus): List<Track>
 }
 
 class OfflineStatusRepository(
@@ -136,6 +137,36 @@ class OfflineStatusRepository(
         }
         dao.deleteTrackStatuses(sourceId)
         dao.deleteSourceStatus(sourceId)
+    }
+
+    override suspend fun getTracksByStatus(sourceId: Long, status: OfflineTrackStatus): List<Track> {
+        return dao.getTrackStatusesByStatus(sourceId, status.name).map { row ->
+            Track(
+                id = row.trackId,
+                title = row.title,
+                artist = "Drive",
+                album = "Drive Public Folder",
+                durationMs = 0L,
+                uri = row.remoteUri,
+                source = com.example.musicplayer.core.model.TrackSource.DRIVE,
+                driveFileId = row.driveFileId,
+                mimeType = row.mimeType
+            )
+        }
+    }
+
+    suspend fun markPendingAsFailed(sourceId: Long, reason: String) {
+        dao.updateStatusesForSource(
+            sourceId = sourceId,
+            fromStatuses = listOf(
+                OfflineTrackStatus.QUEUED.name,
+                OfflineTrackStatus.DOWNLOADING.name
+            ),
+            toStatus = OfflineTrackStatus.FAILED.name,
+            errorMessage = reason,
+            updatedAt = System.currentTimeMillis()
+        )
+        recomputeAndPersistSummary(sourceId)
     }
 
     private fun isPathUnderOfflineRoot(path: String): Boolean {

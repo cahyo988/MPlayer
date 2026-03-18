@@ -1,56 +1,70 @@
 # AGENTS.md
 
-Operational guide for coding agents working in `C:\appDev\MusicPlayer`.
-Use this file as the default playbook for making safe, minimal, repo-aligned changes.
+Operational guide for agentic coding assistants in `C:\appDev\MusicPlayer`.
+Goal: produce safe, minimal, repo-aligned changes with fast verification.
 
-## 1) Instruction Precedence
+## 1) Instruction precedence
 
-When instructions conflict, apply this order:
+If instructions conflict, follow this order:
 1. Direct user request
-2. System/developer instructions from the runtime
-3. Repository rules (`.cursorrules`, `.cursor/rules/*`, `.github/copilot-instructions.md`)
+2. System/developer runtime instructions
+3. Repo rule files (`.cursorrules`, `.cursor/rules/*`, `.github/copilot-instructions.md`)
 4. This `AGENTS.md`
 
-## 2) Repository Snapshot
+## 2) Repository snapshot
 
-- Project type: Android app (single module: `:app`)
+- Android app, single module: `:app`
 - Language: Kotlin
-- UI: Jetpack Compose (Material 3)
-- Build: Gradle Kotlin DSL (`*.gradle.kts`)
-- JVM target: 17
-- Key libraries: Media3, Room (+KSP), WorkManager, Coroutines, Jsoup, Coil
-- Unit tests: JUnit4 + `kotlinx-coroutines-test`
+- UI: Jetpack Compose + Material 3
+- Build system: Gradle Kotlin DSL (`*.gradle.kts`)
+- Java/Kotlin target: 17 (`jvmTarget = "17"`)
+- Core libs: Media3, Room (+KSP), WorkManager, Coroutines, Jsoup, Coil
+- Unit testing: JUnit4 + `kotlinx-coroutines-test`
 
-## 3) Cursor / Copilot Rules Status
+## 3) Cursor/Copilot rules status
 
-Scanned and found **no extra rule files** at this time:
-- `.cursorrules` → not present
-- `.cursor/rules/` → no files present
-- `.github/copilot-instructions.md` → not present
+Checked on 2026-03-18:
+- `.cursorrules` → file not found
+- `.cursor/rules/` → directory not found
+- `.github/copilot-instructions.md` → file not found
 
-If these files are added later, treat them as higher-priority supplements and update this document.
+If any are added later:
+- Treat them as higher priority than this file.
+- Update this section and align workflow decisions.
 
-## 4) Environment & Execution Basics
+## 4) Environment defaults
 
+- Repo root: `C:\appDev\MusicPlayer`
 - Use JDK 17
-- Run commands from repo root: `C:\appDev\MusicPlayer`
-- Windows commands use `gradlew.bat`
-- macOS/Linux equivalents use `./gradlew`
+- Run commands from repo root unless explicitly required otherwise
+- Gradle wrapper by OS:
+  - Windows: `gradlew.bat`
+  - macOS/Linux: `./gradlew`
+- Do not change global machine configuration from agents.
 
-## 5) Build / Lint / Test Commands
+## 5) Build / lint / test commands
+
+Use the wrapper for your OS (`gradlew.bat` or `./gradlew`).
 
 ### Core commands
 
-- Build debug app:
+- Build debug APK:
   - `gradlew.bat :app:assembleDebug`
 - Run lint:
   - `gradlew.bat :app:lint`
-- Run unit tests (debug):
+- Run local unit tests:
   - `gradlew.bat :app:testDebugUnitTest`
-- Run instrumented tests (device/emulator required):
+- Run instrumentation tests (requires emulator/device):
   - `gradlew.bat :app:connectedDebugAndroidTest`
 
-### Combined verification (recommended before handoff)
+### Fast iteration
+
+- Compile Kotlin only:
+  - `gradlew.bat :app:compileDebugKotlin`
+- Run test subset by package pattern:
+  - `gradlew.bat :app:testDebugUnitTest --tests "com.example.musicplayer.features.*"`
+
+### Pre-handoff verification (recommended)
 
 - `gradlew.bat :app:lint :app:testDebugUnitTest :app:assembleDebug`
 
@@ -64,112 +78,101 @@ If these files are added later, treat them as higher-priority supplements and up
   - `gradlew.bat :app:testDebugUnitTest --tests "com.example.musicplayer.features.drive.DriveViewModelTest.invalidUrlSetsErrorImmediately"`
 - Single test class:
   - `gradlew.bat :app:testDebugUnitTest --tests "com.example.musicplayer.features.drive.DriveViewModelTest"`
-- Pattern of tests:
+- Single package/pattern:
   - `gradlew.bat :app:testDebugUnitTest --tests "com.example.musicplayer.features.drive.*"`
+- Multiple explicit filters (repeat `--tests`):
+  - `gradlew.bat :app:testDebugUnitTest --tests "com.example.musicplayer.features.playlist.PlaylistsViewModelTest" --tests "com.example.musicplayer.features.recents.RecentsViewModelTest"`
+- Wildcard fallback for discovery edge cases:
+  - `gradlew.bat :app:testDebugUnitTest --tests "*DriveViewModelTest.invalidUrlSetsErrorImmediately"`
+
+Notes:
+- Keep each `--tests` argument quoted.
+- `--tests` uses Gradle test filtering patterns (not full regex).
+- Prefer fully qualified class names for stable matching.
+- Iterate with targeted tests first, then run full unit suite.
 
 ### Diagnostics
 
-- List all gradle tasks:
-  - `gradlew.bat tasks --all`
-- Show warning details (useful for upgrades):
-  - `gradlew.bat :app:testDebugUnitTest --warning-mode all`
+- List tasks: `gradlew.bat tasks --all`
+- Show warnings during tests: `gradlew.bat :app:testDebugUnitTest --warning-mode all`
+- Add stacktraces on failures: `gradlew.bat :app:testDebugUnitTest --stacktrace`
 
-## 6) High-Level Source Layout
+## 6) Source layout (high level)
 
-- `app/src/main/java/com/example/musicplayer/core` → core models/types
-- `.../data` → repositories, data sources, DB/Room, offline sync
+- `app/src/main/java/com/example/musicplayer/core` → core types/models
+- `.../data` → repositories, Room/db, data sources, sync
+- `.../di` → dependency injection wiring
 - `.../features` → feature screens + ViewModels
-- `.../playback` → Media3 playback/service/controller code
-- `.../ui` → app shell, compose components, theme, now playing
-- `app/src/test/java/...` → local JVM tests
+- `.../playback` → Media3 playback/service/controller
+- `.../ui` → app shell/components/theme
+- `app/src/test/java/com/example/musicplayer/...` → local unit tests
 
-## 7) Code Style Guidelines
+## 7) Code style guidelines
 
-Follow Kotlin official style (`kotlin.code.style=official`) and existing repository patterns.
+Project uses `kotlin.code.style=official`. Match surrounding local patterns.
 
 ### 7.1 Imports
-
-- Keep imports explicit; avoid wildcard imports.
-- Remove unused imports before finalizing changes.
-- Prefer stable ordering enforced by IDE/formatter; do not hand-tune unnecessarily.
-- Avoid fully qualified names inline unless needed to disambiguate.
+- Prefer explicit imports; avoid wildcard imports.
+- Remove unused imports.
+- Keep import order formatter/IDE-driven.
+- Avoid inline fully qualified names unless disambiguation is required.
 
 ### 7.2 Formatting
+- 4 spaces; no tabs.
+- Keep functions short and focused.
+- Wrap long parameter lists/chains across lines.
+- Keep line length review-friendly.
+- Use trailing commas only where consistent nearby.
+- Ensure newline at EOF.
 
-- 4-space indentation, no tabs.
-- Keep functions small and readable.
-- Use trailing commas only when consistent with surrounding file style.
-- Wrap long argument lists vertically.
-- Ensure newline at end of file.
-
-### 7.3 Types and State Modeling
-
+### 7.3 Types and state
 - Prefer `val` over `var`.
-- Use `data class` for immutable state containers (e.g., `UiState`).
-- Keep nullability explicit; avoid platform-type assumptions.
-- Prefer enums/sealed types over stringly-typed state.
-- Avoid `Any` and unchecked casts.
+- Keep nullability explicit and intentional.
+- Use `data class` for immutable UI/domain state.
+- Prefer sealed classes/enums over string flags.
+- Avoid unsafe casts and `Any`-heavy APIs.
+- Keep mutable state private; expose immutable views.
 
-### 7.4 Naming Conventions
-
-- Types (`class`, `object`, `interface`, `enum`): `PascalCase`
-- Functions/properties/local vars: `camelCase`
+### 7.4 Naming conventions
+- Classes/interfaces/objects/enums: `PascalCase`
+- Functions/properties/locals: `camelCase`
 - Constants: `UPPER_SNAKE_CASE`
-- ViewModels end with `ViewModel`
-- UI state types end with `UiState`
-- Composables use clear UI-oriented names (`*Screen`, `*Bar`, `*Host`)
+- ViewModels: suffix `ViewModel`
+- UI state models: suffix `UiState`
+- Composables: descriptive names (`*Screen`, `*Item`, `*Dialog`, etc.)
 
-### 7.5 Compose Conventions
+### 7.5 Compose + coroutines
+- Prefer stateless composables; hoist mutable state.
+- Pass actions via callbacks; avoid hidden coupling.
+- Use `collectAsStateWithLifecycle` for Flow-backed UI state.
+- Keep effects explicit (`LaunchedEffect`, `DisposableEffect`).
+- Use `viewModelScope` for async work.
+- Keep mutable flows private; expose immutable `StateFlow`.
+- Use `MutableStateFlow.update` for atomic updates.
+- Never swallow `CancellationException`.
 
-- Prefer stateless composables; hoist mutable state upward.
-- Pass events as callbacks instead of reaching into global singletons.
-- Use lifecycle-aware state collection (`collectAsStateWithLifecycle`).
-- Keep screen-level orchestration in top-level UI shell.
-- Use meaningful `label` values in animations/transitions.
-
-### 7.6 ViewModel & Coroutines
-
-- Launch async work in `viewModelScope`.
-- Expose immutable `StateFlow`, keep mutable flow private.
-- Use `MutableStateFlow.update { ... }` for atomic transitions.
-- Respect coroutine cancellation; do not swallow `CancellationException`.
-- Guard concurrent loads/races when necessary (mutex/request-id patterns are used in repo).
-
-### 7.7 Error Handling
-
-- Validate input early and fail fast with actionable messages.
+### 7.6 Error handling and data
+- Validate input early.
+- Surface actionable error states/messages to UI.
+- Prefer explicit error handling over silent failure.
 - Use `runCatching` where it improves clarity.
-- Do not silently ignore exceptions.
-- Prefer user-friendly error messages in UI state.
-- Keep message wording consistent with existing screens.
+- Log/report unexpected failures at layer boundaries.
+- Keep repository and data-source responsibilities clear.
+- Ship Room schema version and migrations together.
 
-### 7.8 Data / Persistence
+### 7.7 Testing expectations
+- Add or update tests for non-trivial logic changes.
+- Add regression tests for bug fixes when practical.
+- Use deterministic coroutine testing (`runTest`).
+- Cover both success and failure state transitions.
+- Reuse fakes/test helpers in `app/src/test`.
 
-- Keep repository and data-source responsibilities focused.
-- Keep Room entity/DAO naming explicit and feature-scoped.
-- For schema changes, include migration/version impact in the same change.
-- Keep mapping logic deterministic and side-effect-light.
+## 8) Workflow and safety checklist
 
-### 7.9 Testing Standards
-
-- Add/update tests for all non-trivial logic changes.
-- For bug fixes, add a regression test when feasible.
-- Use deterministic coroutine tests (`runTest`, dispatcher rules).
-- Test both happy path and failure path/state transitions.
-- Reuse existing fake/test patterns in `app/src/test`.
-
-## 8) Agent Workflow Expectations
-
-- Prefer minimal diffs over broad refactors unless requested.
-- Keep architecture consistent with current app container/repository layering.
-- Do not add new frameworks or tooling without clear justification.
-- Run relevant lint/tests for touched areas before finishing.
-- If behavior, commands, or architecture changed, update docs (`AGENTS.md` and related docs).
-
-## 9) Quick Command Cheat Sheet
-
-- Build debug: `gradlew.bat :app:assembleDebug`
-- Lint: `gradlew.bat :app:lint`
-- Unit tests: `gradlew.bat :app:testDebugUnitTest`
-- Single test: `gradlew.bat :app:testDebugUnitTest --tests "fully.qualified.TestClass.testMethod"`
-- Instrumented: `gradlew.bat :app:connectedDebugAndroidTest`
+- Prefer minimal diffs over broad refactors.
+- Preserve architecture unless user asks for redesign.
+- Do not introduce frameworks without clear justification.
+- Run relevant checks for touched areas before handoff.
+- Update docs when behavior/API expectations change.
+- Never commit or push unless explicitly requested.
+- Ensure no secrets/credentials are introduced.

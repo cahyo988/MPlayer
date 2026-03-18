@@ -270,8 +270,42 @@ class DriveViewModel(
             _uiState.update { it.copy(message = "Load tracks first") }
             return
         }
-        downloadStarter.downloadSource(sourceId, tracks)
-        _uiState.update { it.copy(message = "Download started") }
+        val started = downloadStarter.downloadSource(sourceId, tracks)
+        _uiState.update {
+            it.copy(message = if (started) "Download started" else "Download is already running")
+        }
+    }
+
+    fun cancelDownloadForSelectedSource() {
+        val sourceId = _uiState.value.selectedSourceId ?: return
+        val cancelled = downloadStarter.cancelSource(sourceId)
+        _uiState.update {
+            it.copy(message = if (cancelled) "Download cancelled" else "No active download")
+        }
+    }
+
+    fun retryFailedForSelectedSource() {
+        val sourceId = _uiState.value.selectedSourceId ?: return
+        viewModelScope.launch {
+            val failedTracks = offlineStatusRepository.getTracksByStatus(
+                sourceId = sourceId,
+                status = OfflineTrackStatus.FAILED
+            )
+            if (failedTracks.isEmpty()) {
+                _uiState.update { it.copy(message = "No failed tracks to retry") }
+                return@launch
+            }
+            val started = downloadStarter.downloadSource(sourceId, failedTracks)
+            _uiState.update {
+                it.copy(
+                    message = if (started) {
+                        "Retrying failed downloads"
+                    } else {
+                        "Download is already running"
+                    }
+                )
+            }
+        }
     }
 
     private fun observeOffline(sourceId: Long?) {

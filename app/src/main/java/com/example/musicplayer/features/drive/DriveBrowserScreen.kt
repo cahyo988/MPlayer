@@ -20,7 +20,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -244,6 +243,20 @@ private fun SavedPage(
                 Text(stringResource(R.string.action_retry))
             }
         }
+        val summary = state.sourceOfflineSummary
+        val hasActiveDownload = summary?.let {
+            it.status == OfflineSourceStatus.QUEUED || it.status == OfflineSourceStatus.DOWNLOADING
+        } == true
+        if (hasActiveDownload) {
+            TextButton(onClick = viewModel::cancelDownloadForSelectedSource) {
+                Text(stringResource(R.string.action_cancel_download))
+            }
+        }
+        if ((summary?.failedTracks ?: 0) > 0) {
+            TextButton(onClick = viewModel::retryFailedForSelectedSource) {
+                Text(stringResource(R.string.action_retry_failed))
+            }
+        }
     }
 
     Text(
@@ -273,7 +286,7 @@ private fun SavedPage(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
             ) {
-                items(state.nodes) { node ->
+                items(state.nodes, key = { it.uri }) { node ->
                     val track = node.track
                     var menuExpanded by remember { mutableStateOf(false) }
                     val status = track?.let(viewModel::trackOfflineStatus) ?: OfflineTrackStatus.NOT_DOWNLOADED
@@ -286,21 +299,24 @@ private fun SavedPage(
                             val index = tracks.indexOfFirst { it.id == node.track?.id }
                             if (index >= 0) onPlayTracks(tracks, index)
                         },
-                        onMoreClick = if (track != null) ({ menuExpanded = true }) else null,
+                        moreMenuExpanded = menuExpanded,
+                        onMoreMenuExpandedChange = if (track != null) ({ expanded -> menuExpanded = expanded }) else null,
+                        moreMenuContent = if (track != null) {
+                            {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_add_to_playlist)) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onAddToPlaylist(track)
+                                    }
+                                )
+                            }
+                        } else {
+                            null
+                        },
                         moreContentDescription = if (track != null) stringResource(R.string.action_track_actions_for, node.name) else null,
                         trailingLabel = if (status == OfflineTrackStatus.DOWNLOADED) "✓" else null
                     )
-                    if (track != null) {
-                        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.action_add_to_playlist)) },
-                                onClick = {
-                                    menuExpanded = false
-                                    onAddToPlaylist(track)
-                                }
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -350,6 +366,18 @@ private fun SourceStatusRow(state: DriveUiState) {
             style = MaterialTheme.typography.bodySmall
         )
     }
+    Text(
+        text = stringResource(
+            R.string.offline_summary_detail_format,
+            summary.downloadedTracks,
+            summary.failedTracks,
+            summary.queuedTracks,
+            summary.downloadingTracks
+        ),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 2.dp)
+    )
 }
 
 @Composable

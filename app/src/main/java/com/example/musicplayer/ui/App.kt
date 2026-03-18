@@ -7,15 +7,20 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -24,11 +29,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -39,18 +47,21 @@ import com.example.musicplayer.R
 import com.example.musicplayer.di.AppContainer
 import com.example.musicplayer.features.drive.DriveBrowserScreen
 import com.example.musicplayer.features.drive.DriveViewModel
+import com.example.musicplayer.features.favorites.FavoritesScreen
+import com.example.musicplayer.features.favorites.FavoritesViewModel
 import com.example.musicplayer.features.local.LocalLibraryScreen
 import com.example.musicplayer.features.local.LocalLibraryViewModel
 import com.example.musicplayer.features.playlist.PlaylistsScreen
 import com.example.musicplayer.features.playlist.PlaylistsViewModel
 import com.example.musicplayer.features.recents.RecentsScreen
 import com.example.musicplayer.features.recents.RecentsViewModel
+import com.example.musicplayer.features.settings.SettingsScreen
+import com.example.musicplayer.features.settings.SettingsViewModel
 import com.example.musicplayer.playback.PlaybackController
-import com.example.musicplayer.ui.AppTab.DRIVE
-import com.example.musicplayer.ui.AppTab.LOCAL
+import com.example.musicplayer.ui.AppTab.LIBRARY
 import com.example.musicplayer.ui.AppTab.NOW_PLAYING
 import com.example.musicplayer.ui.AppTab.PLAYLISTS
-import com.example.musicplayer.ui.AppTab.RECENTS
+import com.example.musicplayer.ui.AppTab.SETTINGS
 import com.example.musicplayer.ui.components.MiniPlayerBar
 import com.example.musicplayer.ui.nowplaying.NowPlayingScreen
 import com.example.musicplayer.ui.theme.MusicPlayerTheme
@@ -62,7 +73,10 @@ fun App(
     hasAudioPermission: Boolean,
     onRequestAudioPermission: () -> Unit
 ) {
-    var selectedTab by remember { mutableStateOf(LOCAL) }
+    var selectedTab by rememberSaveable { mutableStateOf(LIBRARY) }
+    var selectedLibrarySection by rememberSaveable { mutableStateOf(LibrarySection.LOCAL) }
+    val playbackState by playbackController.state.collectAsStateWithLifecycle()
+    val bottomTabs = remember { listOf(LIBRARY, PLAYLISTS, SETTINGS, NOW_PLAYING) }
 
     DisposableEffect(playbackController) {
         playbackController.connect()
@@ -78,6 +92,17 @@ fun App(
     val playlistsViewModel: PlaylistsViewModel = viewModel(
         factory = PlaylistsViewModel.factory(appContainer.playlistRepository)
     )
+    val favoritesViewModel: FavoritesViewModel = viewModel(
+        factory = FavoritesViewModel.factory(appContainer.favoritesRepository)
+    )
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModel.factory(
+            repository = appContainer.settingsRepository,
+            favoritesRepository = appContainer.favoritesRepository,
+            playbackHistoryRepository = appContainer.playbackHistoryRepository
+        )
+    )
+    val settingsState by settingsViewModel.settings.collectAsStateWithLifecycle()
     val playlistsState by playlistsViewModel.uiState.collectAsStateWithLifecycle()
     val activePlaylistName = playlistsState.selectedPlaylist?.name
         ?: playlistsState.playlists.firstOrNull { it.id == playlistsState.selectedPlaylistId }?.name
@@ -94,7 +119,7 @@ fun App(
         factory = RecentsViewModel.factory(appContainer.playbackHistoryRepository)
     )
 
-    MusicPlayerTheme {
+    MusicPlayerTheme(themeMode = settingsState.themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = MaterialTheme.colorScheme.background,
@@ -114,7 +139,12 @@ fun App(
                             containerColor = MaterialTheme.colorScheme.surface,
                             tonalElevation = 0.dp
                         ) {
-                            AppTab.entries.forEach { tab ->
+                            bottomTabs.forEach { tab ->
+                                val nowPlayingIcon = if (playbackState.isPlaying) {
+                                    Icons.Filled.FastForward
+                                } else {
+                                    Icons.Filled.PlayArrow
+                                }
                                 NavigationBarItem(
                                     selected = selectedTab == tab,
                                     onClick = { selectedTab = tab },
@@ -127,7 +157,7 @@ fun App(
                                     ),
                                     icon = {
                                         Icon(
-                                            imageVector = tab.icon,
+                                            imageVector = if (tab == NOW_PLAYING) nowPlayingIcon else tab.icon,
                                             contentDescription = null
                                         )
                                     },
@@ -147,50 +177,81 @@ fun App(
                     label = "app_tab_transition"
                 ) { tab ->
                     when (tab) {
-                        LOCAL -> LocalLibraryScreen(
-                            modifier = Modifier.padding(innerPadding),
-                            viewModel = localLibraryViewModel,
-                            playbackController = playbackController,
-                            hasAudioPermission = hasAudioPermission,
-                            onRequestPermission = onRequestAudioPermission,
-                            activePlaylistName = activePlaylistName,
-                            onChangePlaylist = { selectedTab = PLAYLISTS },
-                            onAddToPlaylist = { track ->
-                                playlistsViewModel.addTrackToSelectedPlaylist(track)
-                            },
-                            onOpenNowPlaying = { selectedTab = NOW_PLAYING }
-                        )
+                        LIBRARY -> Column(modifier = Modifier.padding(innerPadding)) {
+                            LibrarySectionBar(
+                                selected = selectedLibrarySection,
+                                onSelected = { selectedLibrarySection = it }
+                            )
+                            when (selectedLibrarySection) {
+                                LibrarySection.LOCAL -> LocalLibraryScreen(
+                                    modifier = Modifier.weight(1f),
+                                    viewModel = localLibraryViewModel,
+                                    favoritesViewModel = favoritesViewModel,
+                                    playbackController = playbackController,
+                                    hasAudioPermission = hasAudioPermission,
+                                    autoPlayEnabled = settingsState.autoPlayEnabled,
+                                    autoRescanOnOpen = settingsState.autoRescanOnOpen,
+                                    onRequestPermission = onRequestAudioPermission,
+                                    activePlaylistName = activePlaylistName,
+                                    onChangePlaylist = { selectedTab = PLAYLISTS },
+                                    onAddToPlaylist = { track ->
+                                        playlistsViewModel.addTrackToSelectedPlaylist(track)
+                                    },
+                                    onOpenNowPlaying = { selectedTab = NOW_PLAYING }
+                                )
 
-                        DRIVE -> DriveBrowserScreen(
-                            modifier = Modifier.padding(innerPadding),
-                            viewModel = driveViewModel,
-                            onPlayTracks = { tracks, index ->
-                                playbackController.setQueue(tracks, index, playWhenReady = true)
-                                selectedTab = NOW_PLAYING
-                            },
-                            activePlaylistName = activePlaylistName,
-                            onChangePlaylist = { selectedTab = PLAYLISTS },
-                            onAddToPlaylist = { track ->
-                                playlistsViewModel.addTrackToSelectedPlaylist(track)
+                                LibrarySection.DRIVE -> DriveBrowserScreen(
+                                    modifier = Modifier.weight(1f),
+                                    viewModel = driveViewModel,
+                                    onPlayTracks = { tracks, index ->
+                                        playbackController.setQueue(
+                                            tracks,
+                                            index,
+                                            playWhenReady = settingsState.autoPlayEnabled
+                                        )
+                                        selectedTab = NOW_PLAYING
+                                    },
+                                    activePlaylistName = activePlaylistName,
+                                    onChangePlaylist = { selectedTab = PLAYLISTS },
+                                    onAddToPlaylist = { track ->
+                                        playlistsViewModel.addTrackToSelectedPlaylist(track)
+                                    }
+                                )
+
+                                LibrarySection.FAVORITES -> FavoritesScreen(
+                                    modifier = Modifier.weight(1f),
+                                    viewModel = favoritesViewModel,
+                                    playbackController = playbackController,
+                                    autoPlayEnabled = settingsState.autoPlayEnabled,
+                                    onOpenNowPlaying = { selectedTab = NOW_PLAYING }
+                                )
+
+                                LibrarySection.RECENTS -> RecentsScreen(
+                                    modifier = Modifier.weight(1f),
+                                    viewModel = recentsViewModel,
+                                    playbackController = playbackController,
+                                    autoPlayEnabled = settingsState.autoPlayEnabled,
+                                    onOpenNowPlaying = { selectedTab = NOW_PLAYING }
+                                )
                             }
-                        )
+                        }
 
                         PLAYLISTS -> PlaylistsScreen(
                             modifier = Modifier.padding(innerPadding),
                             viewModel = playlistsViewModel,
                             playbackController = playbackController,
+                            autoPlayEnabled = settingsState.autoPlayEnabled,
                             onOpenNowPlaying = { selectedTab = NOW_PLAYING }
                         )
 
-                        RECENTS -> RecentsScreen(
+                        SETTINGS -> SettingsScreen(
                             modifier = Modifier.padding(innerPadding),
-                            viewModel = recentsViewModel,
-                            playbackController = playbackController,
-                            onOpenNowPlaying = { selectedTab = NOW_PLAYING }
+                            viewModel = settingsViewModel
                         )
 
                         NOW_PLAYING -> NowPlayingScreen(
                             playbackController = playbackController,
+                            autoPlayEnabled = settingsState.autoPlayEnabled,
                             modifier = Modifier.padding(innerPadding)
                         )
                     }
@@ -228,9 +289,49 @@ enum class AppTab(
     val labelRes: Int,
     val icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
-    LOCAL(R.string.tab_local, Icons.Filled.LibraryMusic),
-    DRIVE(R.string.tab_drive, Icons.Filled.Storage),
+    LIBRARY(R.string.tab_library, Icons.Filled.LibraryMusic),
     PLAYLISTS(R.string.tab_playlists, Icons.AutoMirrored.Filled.List),
-    RECENTS(R.string.tab_recents, Icons.Filled.History),
+    SETTINGS(R.string.tab_settings, Icons.Filled.Settings),
     NOW_PLAYING(R.string.tab_now_playing, Icons.Filled.PlayArrow)
+}
+
+private enum class LibrarySection {
+    LOCAL,
+    DRIVE,
+    FAVORITES,
+    RECENTS
+}
+
+@Composable
+private fun LibrarySectionBar(
+    selected: LibrarySection,
+    onSelected: (LibrarySection) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        LibrarySection.entries.forEach { section ->
+            val isSelected = section == selected
+            val labelRes = when (section) {
+                LibrarySection.LOCAL -> R.string.tab_local
+                LibrarySection.DRIVE -> R.string.tab_drive
+                LibrarySection.FAVORITES -> R.string.tab_favorites
+                LibrarySection.RECENTS -> R.string.tab_recents
+            }
+            if (isSelected) {
+                FilledTonalButton(onClick = { onSelected(section) }) {
+                    Text(text = stringResource(labelRes))
+                }
+            } else {
+                Button(onClick = { onSelected(section) }) {
+                    Text(text = stringResource(labelRes))
+                }
+            }
+        }
+    }
 }

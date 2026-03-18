@@ -17,6 +17,9 @@ interface OfflineStatusDao {
     @Query("SELECT * FROM offline_track_status WHERE sourceId = :sourceId")
     suspend fun getTrackStatuses(sourceId: Long): List<OfflineTrackStatusEntity>
 
+    @Query("SELECT * FROM offline_track_status WHERE sourceId = :sourceId AND status = :status")
+    suspend fun getTrackStatusesByStatus(sourceId: Long, status: String): List<OfflineTrackStatusEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSourceStatus(status: OfflineSourceStatusEntity)
 
@@ -37,6 +40,25 @@ interface OfflineStatusDao {
 
     @Query("SELECT * FROM offline_track_status WHERE sourceId = :sourceId AND trackId = :trackId LIMIT 1")
     suspend fun getTrackStatus(sourceId: Long, trackId: String): OfflineTrackStatusEntity?
+
+    @Query(
+        """
+        UPDATE offline_track_status
+        SET status = :toStatus,
+            localFilePath = NULL,
+            errorMessage = :errorMessage,
+            updatedAt = :updatedAt
+        WHERE sourceId = :sourceId
+          AND status IN (:fromStatuses)
+        """
+    )
+    suspend fun updateStatusesForSource(
+        sourceId: Long,
+        fromStatuses: List<String>,
+        toStatus: String,
+        errorMessage: String?,
+        updatedAt: Long
+    ): Int
 
     @Query("SELECT * FROM offline_track_status WHERE trackId = :trackId AND status = :status ORDER BY updatedAt DESC LIMIT 1")
     suspend fun getLatestTrackByStatus(trackId: String, status: String): OfflineTrackStatusEntity?

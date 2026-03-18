@@ -6,6 +6,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.musicplayer.data.local.LocalMusicRepository
 import com.example.musicplayer.data.local.MediaStoreScanner
+import com.example.musicplayer.data.favorites.FavoritesRepository
 import com.example.musicplayer.data.history.PlaybackHistoryRepository
 import com.example.musicplayer.data.offline.OfflineDownloadManager
 import com.example.musicplayer.data.offline.OfflinePlaybackResolver
@@ -13,6 +14,7 @@ import com.example.musicplayer.data.offline.OfflineStatusRepository
 import com.example.musicplayer.data.drive.DriveSourceRepository
 import com.example.musicplayer.data.drive.DriveRepository
 import com.example.musicplayer.data.playlist.PlaylistRepository
+import com.example.musicplayer.data.settings.AppSettingsRepository
 import com.example.musicplayer.data.playlist.db.AppDatabase
 
 class AppContainer(context: Context) {
@@ -23,6 +25,7 @@ class AppContainer(context: Context) {
             .addMigrations(MIGRATION_1_2)
             .addMigrations(MIGRATION_2_3)
             .addMigrations(MIGRATION_3_4)
+            .addMigrations(MIGRATION_4_5)
             .build()
     }
 
@@ -31,7 +34,17 @@ class AppContainer(context: Context) {
     }
 
     val playbackHistoryRepository: PlaybackHistoryRepository by lazy {
-        PlaybackHistoryRepository(database.playbackHistoryDao())
+        PlaybackHistoryRepository(
+            dao = database.playbackHistoryDao()
+        )
+    }
+
+    val favoritesRepository: FavoritesRepository by lazy {
+        FavoritesRepository(database.favoriteTrackDao())
+    }
+
+    val settingsRepository: AppSettingsRepository by lazy {
+        AppSettingsRepository(appContext)
     }
 
     val playlistRepository: PlaylistRepository by lazy {
@@ -141,6 +154,29 @@ class AppContainer(context: Context) {
                     """.trimIndent()
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_playback_history_lastPlayedAt ON playback_history(lastPlayedAt)")
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS favorite_tracks (
+                        trackId TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        artist TEXT NOT NULL,
+                        album TEXT NOT NULL,
+                        durationMs INTEGER NOT NULL,
+                        uri TEXT NOT NULL,
+                        source TEXT NOT NULL,
+                        artworkUri TEXT,
+                        driveFileId TEXT,
+                        mimeType TEXT,
+                        addedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_favorite_tracks_addedAt ON favorite_tracks(addedAt)")
             }
         }
     }
